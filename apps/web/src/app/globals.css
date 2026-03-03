@@ -1,17 +1,46 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #09090B;
-  --color-surface: #18181B;
-  --color-elevated: #27272A;
-  --color-border: #3F3F46;
-  --color-foreground: #FAFAFA;
-  --color-muted: #A1A1AA;
-  --color-accent: #3B82F6;
-  --color-danger: #EF4444;
-  --color-success: #22C55E;
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* Light theme (default) */
+:root {
+  --background: #FFFFFF;
+  --surface: #F9F9FB;
+  --elevated: #F1F0F5;
+  --border: #E2DFED;
+  --foreground: #18181B;
+  --muted: #6B6879;
+  --accent: #18181B;
+  --accent-fg: #FFFFFF;
+  --danger: #DC2626;
+  --success: #16A34A;
+}
+
+/* Dark theme */
+.dark {
+  --background: #09090B;
+  --surface: #18181B;
+  --elevated: #27272A;
+  --border: #3F3F46;
+  --foreground: #FAFAFA;
+  --muted: #A1A1AA;
+  --accent: #E2DFED;
+  --accent-fg: #18181B;
+  --danger: #EF4444;
+  --success: #22C55E;
 }
 
 html {
@@ -19,16 +48,16 @@ html {
 }
 
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--background);
+  color: var(--foreground);
 }
 
 ::selection {
-  background: var(--color-accent);
-  color: white;
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
-/* Scrollbar styling for dark theme */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -39,10 +68,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--border);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted);
+  background: var(--muted);
 }

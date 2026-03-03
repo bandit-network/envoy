@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 import { PrivyProvider } from "@/components/providers/privy-provider";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import "./globals.css";
@@ -25,12 +26,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <PrivyProvider>{children}</PrivyProvider>
-        <ToastProvider />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <PrivyProvider>{children}</PrivyProvider>
+          <ToastProvider />
+        </ThemeProvider>
       </body>
     </html>
   );

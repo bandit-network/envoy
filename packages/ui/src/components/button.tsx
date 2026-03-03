@@ -6,7 +6,7 @@ import { cn } from "../lib/cn";
 import { Spinner } from "./spinner";
 
 const variants = {
-  default: "bg-accent text-white hover:bg-accent/90",
+  default: "bg-accent text-accent-fg hover:bg-accent/90",
   outline: "border border-border bg-transparent text-foreground hover:bg-surface",
   ghost: "bg-transparent text-foreground hover:bg-surface",
   danger: "bg-danger text-white hover:bg-danger/90",

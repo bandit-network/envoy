@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@envoy/ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 
 interface UserInfo {
   user: {
@@ -15,10 +15,22 @@ interface UserInfo {
   };
 }
 
+const THEME_OPTIONS = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
+] as const;
+
 export default function SettingsPage() {
   const authFetch = useAuthFetch();
   const [user, setUser] = useState<UserInfo["user"] | null>(null);
   const [loading, setLoading] = useState(true);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -72,6 +84,36 @@ export default function SettingsPage() {
               </dl>
             ) : (
               <p className="text-sm text-muted">Failed to load account info.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Appearance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted">
+              Choose your preferred theme
+            </p>
+            {mounted ? (
+              <div className="flex gap-2">
+                {THEME_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setTheme(option.value)}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
+                      theme === option.value
+                        ? "border-accent bg-accent text-accent-fg"
+                        : "border-border bg-transparent text-foreground hover:bg-surface"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Skeleton className="h-10 w-48" />
             )}
           </CardContent>
         </Card>
