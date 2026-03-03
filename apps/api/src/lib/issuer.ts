@@ -58,7 +58,7 @@ export async function signManifest(payload: ManifestPayload): Promise<string> {
   const jwt = await new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: ALG, kid: KEY_ID })
     .setIssuedAt()
-    .setExpirationTime(payload.expires_at)
+    .setExpirationTime(new Date(payload.expires_at))
     .sign(privateKey);
 
   return jwt;

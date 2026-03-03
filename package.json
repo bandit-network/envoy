@@ -19,5 +19,8 @@
     "turbo": "^2.4.4",
     "typescript": "^5.8.2"
   },
-  "packageManager": "bun@1.2.12"
+  "packageManager": "bun@1.2.12",
+  "dependencies": {
+    "ioredis": "^5.10.0"
+  }
 }
