@@ -1,0 +1,23 @@
+{
+  "name": "envoy",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "turbo run db:generate --filter=@envoy/db",
+    "db:migrate": "turbo run db:migrate --filter=@envoy/db",
+    "db:studio": "turbo run db:studio --filter=@envoy/db"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  },
+  "packageManager": "bun@1.2.12"
+}
