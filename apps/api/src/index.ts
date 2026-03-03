@@ -2,9 +2,11 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { health } from "./routes/health";
+import { authMiddleware, type AuthEnv } from "./middleware/auth";
 
 const app = new Hono();
 
+// Global middleware
 app.use("*", logger());
 app.use(
   "*",
@@ -14,7 +16,21 @@ app.use(
   })
 );
 
+// Public routes
 app.route("/", health);
+
+// Protected routes (Privy JWT required)
+const v1 = new Hono<AuthEnv>();
+v1.use("*", authMiddleware);
+
+v1.get("/me", (c) => {
+  return c.json({
+    success: true,
+    data: { user: c.get("user") },
+  });
+});
+
+app.route("/api/v1", v1);
 
 const port = Number(process.env.API_PORT) || 3001;
 

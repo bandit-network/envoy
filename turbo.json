@@ -1,6 +1,5 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDotEnv": [".env"],
   "globalPassThroughEnv": [
     "DATABASE_URL",
     "REDIS_URL",
