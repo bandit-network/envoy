@@ -12,6 +12,7 @@ import { auditRouter } from "./routes/audit";
 import { platformsRouter } from "./routes/platforms";
 import { revocationsRouter } from "./routes/revocations";
 import { webhooksRouter } from "./routes/webhooks";
+import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
 
 const app = new Hono();
 
@@ -81,6 +82,22 @@ v1.route("/webhooks", webhooksRouter);
 app.route("/api/v1", v1);
 
 const port = Number(process.env.API_PORT) || 3001;
+
+// Start webhook worker
+startWebhookWorker();
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  console.log("[api] SIGTERM received, shutting down...");
+  await stopWebhookWorker();
+  process.exit(0);
+});
+
+process.on("SIGINT", async () => {
+  console.log("[api] SIGINT received, shutting down...");
+  await stopWebhookWorker();
+  process.exit(0);
+});
 
 console.log(`Envoy API running on port ${port}`);
 

@@ -1,17 +1,14 @@
 import { db, webhookSubscriptions } from "@envoy/db";
-import { eq } from "drizzle-orm";
 import { createHmac } from "crypto";
+import { enqueueWebhook } from "./webhook-queue";
 
 const WEBHOOK_SIGNING_SECRET = process.env.WEBHOOK_SIGNING_SECRET ?? "dev-webhook-secret";
-const MAX_RETRIES = 3;
-const BASE_DELAY_MS = 1000;
 
 export type WebhookEventType = "manifest.revoked" | "agent.revoked" | "manifest.issued";
 
 interface WebhookEvent {
   type: WebhookEventType;
   data: Record<string, unknown>;
-  timestamp?: string;
 }
 
 /**
@@ -22,92 +19,78 @@ export function signWebhookPayload(payload: string, secret: string): string {
 }
 
 /**
- * Deliver a webhook event to all matching subscriptions.
- * Fire-and-forget: runs async, does not block the caller.
- * Retries up to 3 times with exponential backoff.
+ * Deliver a webhook event by enqueueing it to the BullMQ queue.
+ * The worker will pick it up and deliver to matching subscriptions.
  */
 export function deliverWebhook(event: WebhookEvent): void {
-  // Run async, don't await
-  deliverWebhookAsync(event).catch((err) => {
-    console.error("[webhook] delivery error:", err);
+  enqueueWebhook(event.type, event.data).catch((err) => {
+    console.error("[webhook] failed to enqueue:", err);
   });
 }
 
-async function deliverWebhookAsync(event: WebhookEvent): Promise<void> {
+/**
+ * Execute webhook delivery to all matching subscriptions.
+ * Called by the BullMQ worker. Throws on failure so the job retries.
+ */
+export async function executeWebhookDelivery(
+  type: string,
+  data: Record<string, unknown>
+): Promise<void> {
   const payload = JSON.stringify({
     id: crypto.randomUUID(),
-    type: event.type,
-    data: event.data,
-    timestamp: event.timestamp ?? new Date().toISOString(),
+    type,
+    data,
+    timestamp: new Date().toISOString(),
   });
 
-  // Find all subscriptions that include this event type
-  const subscriptions = await db
-    .select()
-    .from(webhookSubscriptions)
-    .where(eq(webhookSubscriptions.eventTypes, [event.type] as unknown as string[]));
-
-  // Actually we need to filter in-app since JSONB array containment needs a raw query.
-  // Fetch all subscriptions and filter by event type in JS.
+  // Fetch all subscriptions and filter by event type in JS
+  // (JSONB array containment needs raw SQL, this is simpler for now)
   const allSubs = await db.select().from(webhookSubscriptions);
   const matchingSubs = allSubs.filter((sub) => {
     const types = sub.eventTypes as string[];
-    return types.includes(event.type);
+    return types.includes(type);
   });
 
   if (matchingSubs.length === 0) return;
 
   const signature = signWebhookPayload(payload, WEBHOOK_SIGNING_SECRET);
 
-  const deliveries = matchingSubs.map((sub) =>
-    deliverToUrl(sub.url, payload, signature)
+  const results = await Promise.allSettled(
+    matchingSubs.map((sub) => deliverToUrl(sub.url, payload, signature, type))
   );
 
-  await Promise.allSettled(deliveries);
+  // If any delivery failed, throw so BullMQ retries the job
+  const failures = results.filter((r) => r.status === "rejected");
+  if (failures.length > 0) {
+    throw new Error(
+      `${failures.length}/${matchingSubs.length} webhook deliveries failed`
+    );
+  }
 }
 
 async function deliverToUrl(
   url: string,
   payload: string,
-  signature: string
+  signature: string,
+  eventType: string
 ): Promise<void> {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Envoy-Signature": signature,
-          "X-Envoy-Event": JSON.parse(payload).type,
-        },
-        body: payload,
-        signal: AbortSignal.timeout(10_000),
-      });
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Envoy-Signature": signature,
+      "X-Envoy-Event": eventType,
+    },
+    body: payload,
+    signal: AbortSignal.timeout(10_000),
+  });
 
-      if (response.ok || (response.status >= 200 && response.status < 300)) {
-        return; // Success
-      }
-
-      // 4xx errors are not retryable (except 429)
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-        console.warn(
-          `[webhook] non-retryable ${response.status} from ${url}, dropping`
-        );
-        return;
-      }
-    } catch (err) {
-      console.warn(
-        `[webhook] attempt ${attempt + 1}/${MAX_RETRIES} failed for ${url}:`,
-        err instanceof Error ? err.message : err
-      );
+  if (!response.ok) {
+    // 4xx errors (except 429) are not retryable
+    if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      console.warn(`[webhook] non-retryable ${response.status} from ${url}, dropping`);
+      return;
     }
-
-    // Exponential backoff: 1s, 4s, 16s
-    if (attempt < MAX_RETRIES - 1) {
-      const delay = BASE_DELAY_MS * Math.pow(4, attempt);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
+    throw new Error(`HTTP ${response.status} from ${url}`);
   }
-
-  console.error(`[webhook] all ${MAX_RETRIES} attempts failed for ${url}`);
 }
