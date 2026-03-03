@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { health } from "./routes/health";
+import { wellKnown } from "./routes/well-known";
 import { authMiddleware, type AuthEnv } from "./middleware/auth";
 
 const app = new Hono();
@@ -18,6 +19,7 @@ app.use(
 
 // Public routes
 app.route("/", health);
+app.route("/", wellKnown);
 
 // Protected routes (Privy JWT required)
 const v1 = new Hono<AuthEnv>();
