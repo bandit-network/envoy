@@ -1,5 +1,19 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDotEnv": [".env"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "REDIS_URL",
+    "PRIVY_APP_ID",
+    "PRIVY_APP_SECRET",
+    "ENVOY_ISSUER_PRIVATE_KEY",
+    "ENVOY_ISSUER_KEY_ID",
+    "WEBHOOK_SIGNING_SECRET",
+    "API_BASE_URL",
+    "WEB_BASE_URL",
+    "API_PORT",
+    "NODE_ENV"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
@@ -19,14 +33,17 @@
       "dependsOn": ["^build"]
     },
     "db:generate": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["DATABASE_URL"]
     },
     "db:migrate": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["DATABASE_URL"]
     },
     "db:studio": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": ["DATABASE_URL"]
     }
   }
 }
