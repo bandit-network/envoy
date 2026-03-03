@@ -6,6 +6,7 @@ import { HTTPException } from "hono/http-exception";
 import type { AuthEnv } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { issueManifest, refreshManifest } from "../services/manifest";
+import { createPairing } from "../services/pairing";
 
 export const agentsRouter = new Hono<AuthEnv>();
 
@@ -293,6 +294,25 @@ agentsRouter.post("/:id/refresh", async (c) => {
     return c.json({ success: true, data: result }, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to refresh manifest";
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message } },
+      400
+    );
+  }
+});
+
+/**
+ * POST /:id/pair -- Generate a pairing secret (auth required, human operator)
+ */
+agentsRouter.post("/:id/pair", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  try {
+    const result = await createPairing(agentId, user.userId);
+    return c.json({ success: true, data: result }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to create pairing";
     return c.json(
       { success: false, error: { code: "BAD_REQUEST", message } },
       400

@@ -5,6 +5,7 @@ import { health } from "./routes/health";
 import { wellKnown } from "./routes/well-known";
 import { authMiddleware, type AuthEnv } from "./middleware/auth";
 import { agentsRouter } from "./routes/agents";
+import { pairingRouter } from "./routes/pairing";
 
 const app = new Hono();
 
@@ -21,6 +22,7 @@ app.use(
 // Public routes
 app.route("/", health);
 app.route("/", wellKnown);
+app.route("/api/v1", pairingRouter);
 
 // Protected routes (Privy JWT required)
 const v1 = new Hono<AuthEnv>();

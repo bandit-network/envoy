@@ -12,6 +12,7 @@
     "@envoy/db": "workspace:*",
     "@envoy/types": "workspace:*",
     "@hono/zod-validator": "^0.5.0",
+    "@node-rs/argon2": "^2.0.2",
     "@privy-io/server-auth": "^1.32.5",
     "hono": "^4.7.6",
     "jose": "^6.1.3",
