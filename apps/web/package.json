@@ -3,15 +3,16 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
-    "start": "next start",
+    "dev": "bun --env-file=../../.env next dev --port 3000",
+    "build": "bun --env-file=../../.env next build",
+    "start": "bun --env-file=../../.env next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@envoy/types": "workspace:*",
     "@envoy/ui": "workspace:*",
+    "@privy-io/react-auth": "^3.15.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
