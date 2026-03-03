@@ -1,10 +1,11 @@
 import { Hono } from "hono";
 import { db, agents, manifests, revocations, auditLogs } from "@envoy/db";
-import { createAgentSchema, updateAgentSchema } from "@envoy/types";
+import { createAgentSchema, updateAgentSchema, issueManifestSchema } from "@envoy/types";
 import { eq, and, desc, isNull, count } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import type { AuthEnv } from "../middleware/auth";
 import { logAudit } from "../services/audit";
+import { issueManifest, refreshManifest } from "../services/manifest";
 
 export const agentsRouter = new Hono<AuthEnv>();
 
@@ -235,6 +236,68 @@ agentsRouter.delete("/:id", async (c) => {
   });
 
   return c.json({ success: true, data: revoked });
+});
+
+/**
+ * POST /:id/manifest -- Issue a new signed manifest
+ */
+agentsRouter.post("/:id/manifest", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  let ttl: number | undefined;
+  try {
+    const body = await c.req.json();
+    const parsed = issueManifestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(
+        { success: false, error: { code: "BAD_REQUEST", message: parsed.error.message } },
+        400
+      );
+    }
+    ttl = parsed.data.ttl;
+  } catch {
+    // Empty body is fine, use default TTL
+  }
+
+  try {
+    const result = await issueManifest(agentId, user.userId, ttl);
+    return c.json({ success: true, data: result }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to issue manifest";
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message } },
+      400
+    );
+  }
+});
+
+/**
+ * POST /:id/refresh -- Revoke current manifest and issue a new one
+ */
+agentsRouter.post("/:id/refresh", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  let ttl: number | undefined;
+  try {
+    const body = await c.req.json();
+    const parsed = issueManifestSchema.safeParse(body);
+    if (parsed.success) ttl = parsed.data.ttl;
+  } catch {
+    // Empty body is fine
+  }
+
+  try {
+    const result = await refreshManifest(agentId, user.userId, ttl);
+    return c.json({ success: true, data: result }, 201);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to refresh manifest";
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message } },
+      400
+    );
+  }
 });
 
 /**
