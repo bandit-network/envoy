@@ -126,6 +126,12 @@ export default function Home() {
           <span className="text-sm font-bold tracking-widest text-foreground">ENVOY</span>
           <div className="flex items-center gap-4">
             <Link
+              href="/docs"
+              className="text-sm font-medium text-muted transition-colors hover:text-foreground"
+            >
+              Docs
+            </Link>
+            <Link
               href="/dashboard"
               className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
             >
@@ -152,10 +158,10 @@ export default function Home() {
             Get Started
           </Link>
           <Link
-            href="https://github.com"
+            href="/docs"
             className="rounded-md border border-border px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-surface"
           >
-            View on GitHub
+            View Docs
           </Link>
         </div>
       </section>
