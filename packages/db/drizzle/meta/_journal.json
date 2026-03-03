@@ -29,6 +29,13 @@
       "when": 1772562124170,
       "tag": "0003_giant_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772564567189,
+      "tag": "0004_romantic_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

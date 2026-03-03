@@ -613,6 +613,47 @@ describe("Profile fields - Manifest", () => {
     expect(json.data.manifestJson.agent_username).toBe("manifest-test");
   });
 
+  it("manifest contains custom scopes", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Scoped Agent",
+        scopes: ["api_access", "trade", "write"],
+      }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}/manifest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.manifestJson.scopes).toEqual(["api_access", "trade", "write"]);
+  });
+
+  it("manifest contains default scopes when agent has no custom scopes", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Default Scope Agent" }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}/manifest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.manifestJson.scopes).toEqual(["api_access"]);
+  });
+
   it("manifest has null agent_username when agent has no username", async () => {
     const createRes = await app.request("/", {
       method: "POST",
@@ -630,5 +671,78 @@ describe("Profile fields - Manifest", () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.data.manifestJson.agent_username).toBeNull();
+  });
+});
+
+// -------------------------------------------------------------------
+// Agent scopes
+// -------------------------------------------------------------------
+describe("Agent scopes - Create", () => {
+  it("creates an agent with custom scopes", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Custom Scopes Agent",
+        scopes: ["api_access", "trade"],
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.scopes).toEqual(["api_access", "trade"]);
+  });
+
+  it("creates an agent with default scopes when omitted", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Default Scopes Agent" }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.scopes).toEqual(["api_access"]);
+  });
+
+  it("rejects empty scopes array", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Empty Scopes", scopes: [] }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects invalid scope value", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Bad Scope", scopes: ["invalid_scope"] }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("Agent scopes - Update", () => {
+  it("updates agent scopes via PATCH", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Patch Scopes Agent" }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scopes: ["api_access", "data_read", "write"] }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.scopes).toEqual(["api_access", "data_read", "write"]);
   });
 });

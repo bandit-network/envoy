@@ -50,7 +50,7 @@ export async function issueManifest(
     agent_id: agent.id,
     owner_ref: userId,
     wallet_addresses: agent.walletAddress ? [agent.walletAddress] : [],
-    scopes: ["api_access"], // Default scope, will be configurable later
+    scopes: (agent.scopes as string[]) ?? ["api_access"],
     policy_refs: {},
     issued_at: now.toISOString(),
     expires_at: expiresAt.toISOString(),

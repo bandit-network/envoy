@@ -44,6 +44,22 @@ export const usernameSchema = z
     "This username is reserved"
   );
 
+/** Available agent permission scopes */
+export const AVAILABLE_SCOPES = [
+  "api_access",
+  "trade",
+  "write",
+  "data_read",
+] as const;
+
+export type AgentScope = (typeof AVAILABLE_SCOPES)[number];
+
+/** Scope validation: at least 1 scope from the available set */
+export const agentScopesSchema = z
+  .array(z.enum(AVAILABLE_SCOPES))
+  .min(1, "At least one scope is required")
+  .default(["api_access"]);
+
 /** Optional URL field for social links and avatar */
 const optionalUrlSchema = z
   .string()
@@ -59,6 +75,7 @@ export const createAgentSchema = z.object({
   avatarUrl: optionalUrlSchema,
   socialMoltbook: optionalUrlSchema,
   socialX: optionalUrlSchema,
+  scopes: agentScopesSchema.optional(),
 });
 
 export const updateAgentSchema = z.object({
@@ -68,6 +85,7 @@ export const updateAgentSchema = z.object({
   avatarUrl: optionalUrlSchema,
   socialMoltbook: optionalUrlSchema,
   socialX: optionalUrlSchema,
+  scopes: agentScopesSchema.optional(),
   status: agentStatusSchema.optional(),
 });
 

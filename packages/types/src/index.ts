@@ -5,8 +5,10 @@ export {
   createAgentSchema,
   updateAgentSchema,
   usernameSchema,
+  AVAILABLE_SCOPES,
+  agentScopesSchema,
 } from "./agent";
-export type { CreateAgentInput, UpdateAgentInput } from "./agent";
+export type { CreateAgentInput, UpdateAgentInput, AgentScope } from "./agent";
 export type { AuthUser } from "./auth";
 export {
   manifestPayloadSchema,

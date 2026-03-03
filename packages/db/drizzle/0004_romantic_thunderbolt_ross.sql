@@ -1,0 +1,1 @@
+ALTER TABLE "agents" ADD COLUMN "scopes" jsonb DEFAULT '["api_access"]'::jsonb NOT NULL;

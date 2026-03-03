@@ -27,7 +27,7 @@ agentsRouter.post("/", async (c) => {
   }
 
   const user = c.get("user");
-  const { name, description, username, avatarUrl, socialMoltbook, socialX } = parsed.data;
+  const { name, description, username, avatarUrl, socialMoltbook, socialX, scopes } = parsed.data;
 
   let agent;
   try {
@@ -41,6 +41,7 @@ agentsRouter.post("/", async (c) => {
         avatarUrl: avatarUrl ?? null,
         socialMoltbook: socialMoltbook ?? null,
         socialX: socialX ?? null,
+        ...(scopes ? { scopes } : {}),
       })
       .returning();
     agent = inserted;
@@ -197,6 +198,7 @@ agentsRouter.patch("/:id", async (c) => {
   if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl;
   if (parsed.data.socialMoltbook !== undefined) updateData.socialMoltbook = parsed.data.socialMoltbook;
   if (parsed.data.socialX !== undefined) updateData.socialX = parsed.data.socialX;
+  if (parsed.data.scopes !== undefined) updateData.scopes = parsed.data.scopes;
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
 
   // If revoking via PATCH
