@@ -9,6 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@envoy/db": "workspace:*",
+    "@envoy/types": "workspace:*",
     "hono": "^4.7.6",
     "@hono/zod-validator": "^0.5.0",
     "zod": "^3.24.2"
