@@ -29,5 +29,44 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---- Application services (use: docker compose --profile app up) ----
+
+  api:
+    profiles: [app]
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.api
+    container_name: envoy-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql://envoy:envoy@postgres:5432/envoy
+      REDIS_URL: redis://redis:6379
+
+  web:
+    profiles: [app]
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile.web
+      args:
+        NEXT_PUBLIC_PRIVY_APP_ID: ${NEXT_PUBLIC_PRIVY_APP_ID:-}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    container_name: envoy-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3001
+
 volumes:
   pgdata:

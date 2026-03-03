@@ -1,0 +1,46 @@
+# ----- Stage 1: Install dependencies -----
+FROM oven/bun:1 AS deps
+
+WORKDIR /app
+
+# Copy workspace root files
+COPY package.json bun.lock turbo.json ./
+
+# Copy workspace package.json files for dependency resolution
+COPY apps/api/package.json apps/api/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/types/package.json packages/types/package.json
+COPY packages/config/package.json packages/config/package.json
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# ----- Stage 2: Build -----
+FROM oven/bun:1 AS builder
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Build the API (turborepo will build dependencies first)
+RUN bun run build --filter=@envoy/api
+
+# ----- Stage 3: Runtime -----
+FROM oven/bun:1-slim AS runtime
+
+WORKDIR /app
+
+# Copy only what's needed for runtime
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api ./apps/api
+COPY --from=builder /app/packages/db ./packages/db
+COPY --from=builder /app/packages/types ./packages/types
+COPY --from=builder /app/package.json ./package.json
+
+EXPOSE 3001
+
+ENV NODE_ENV=production
+ENV API_PORT=3001
+
+CMD ["bun", "run", "apps/api/src/index.ts"]
