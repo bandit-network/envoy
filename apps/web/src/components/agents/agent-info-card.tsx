@@ -20,6 +20,7 @@ interface AgentInfoCardProps {
     avatarUrl: string | null;
     socialMoltbook: string | null;
     socialX: string | null;
+    scopes: string[];
     status: string;
     walletAddress?: string | null;
     createdAt: string;
@@ -90,6 +91,18 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
               )}
             </dd>
           </div>
+          {agent.scopes && agent.scopes.length > 0 && (
+            <div className="sm:col-span-2">
+              <dt className="text-muted">Scopes</dt>
+              <dd className="mt-1 flex flex-wrap gap-1.5">
+                {agent.scopes.map((scope) => (
+                  <Badge key={scope} variant="muted">
+                    {scope.replace("_", " ")}
+                  </Badge>
+                ))}
+              </dd>
+            </div>
+          )}
           <div>
             <dt className="text-muted">Created</dt>
             <dd className="mt-0.5">{formatDate(agent.createdAt)}</dd>

@@ -22,6 +22,7 @@ interface Agent {
   avatarUrl: string | null;
   socialMoltbook: string | null;
   socialX: string | null;
+  scopes: string[];
   status: string;
   walletAddress: string | null;
   createdAt: string;

@@ -23,6 +23,7 @@ export default function CreateAgentPage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [socialMoltbook, setSocialMoltbook] = useState("");
   const [socialX, setSocialX] = useState("");
+  const [scopes, setScopes] = useState<string[]>(["api_access"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export default function CreateAgentPage() {
         avatarUrl: avatarUrl.trim() || null,
         socialMoltbook: socialMoltbook.trim() || null,
         socialX: socialX.trim() || null,
+        scopes,
       }, authFetch);
       toast.success("Agent created");
       router.push(`/agents/${agent.id}`);
@@ -173,6 +175,46 @@ export default function CreateAgentPage() {
               </div>
             </div>
 
+            {/* Scopes */}
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Permissions <span className="text-danger">*</span>
+                </p>
+                <p className="mt-0.5 text-xs text-muted">
+                  Select at least one scope for this agent
+                </p>
+              </div>
+              {[
+                { value: "api_access", label: "API Access", desc: "Basic API authentication and access" },
+                { value: "trade", label: "Trade", desc: "Execute trades and financial operations" },
+                { value: "write", label: "Write", desc: "Create and modify resources" },
+                { value: "data_read", label: "Data Read", desc: "Read-only access to data endpoints" },
+              ].map((scope) => (
+                <label
+                  key={scope.value}
+                  className="flex cursor-pointer items-start gap-3 rounded-md border border-border px-3 py-2.5 transition-colors hover:bg-surface"
+                >
+                  <input
+                    type="checkbox"
+                    checked={scopes.includes(scope.value)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setScopes([...scopes, scope.value]);
+                      } else {
+                        setScopes(scopes.filter((s) => s !== scope.value));
+                      }
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-border accent-accent"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-foreground">{scope.label}</span>
+                    <p className="text-xs text-muted">{scope.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
             {error && (
               <div className="rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">
                 {error}
@@ -180,7 +222,7 @@ export default function CreateAgentPage() {
             )}
 
             <div className="flex gap-3 pt-2">
-              <Button type="submit" loading={loading}>
+              <Button type="submit" loading={loading} disabled={scopes.length === 0}>
                 Create Agent
               </Button>
               <Button
