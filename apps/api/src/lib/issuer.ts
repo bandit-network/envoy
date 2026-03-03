@@ -22,7 +22,7 @@ let _publicJwk: JWK | null = null;
 
 async function getPrivateKey(): Promise<CryptoKey> {
   if (!_privateKey) {
-    _privateKey = await importPKCS8(PRIVATE_KEY_PEM, ALG);
+    _privateKey = await importPKCS8(PRIVATE_KEY_PEM, ALG, { extractable: true });
   }
   return _privateKey;
 }
