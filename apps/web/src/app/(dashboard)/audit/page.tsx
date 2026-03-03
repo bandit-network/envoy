@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Badge,
   Button,
@@ -120,8 +120,8 @@ export default function AuditPage() {
             </TableHeader>
             <TableBody>
               {entries.map((entry) => (
-                <>
-                  <TableRow key={entry.id}>
+                <React.Fragment key={entry.id}>
+                  <TableRow>
                     <TableCell>
                       <Badge variant={actionVariant[entry.action] ?? "muted"}>
                         {entry.action}
@@ -148,7 +148,7 @@ export default function AuditPage() {
                     </TableCell>
                   </TableRow>
                   {expandedId === entry.id && entry.metadata && (
-                    <TableRow key={`${entry.id}-meta`}>
+                    <TableRow>
                       <TableCell colSpan={4}>
                         <pre className="rounded-md bg-background p-3 font-mono text-xs text-muted">
                           {JSON.stringify(entry.metadata, null, 2)}
@@ -156,7 +156,7 @@ export default function AuditPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </TableBody>
           </Table>
