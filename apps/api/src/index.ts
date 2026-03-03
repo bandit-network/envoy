@@ -8,6 +8,8 @@ import { agentsRouter } from "./routes/agents";
 import { pairingRouter } from "./routes/pairing";
 import { verifyRouter } from "./routes/verify";
 import { auditRouter } from "./routes/audit";
+import { platformsRouter } from "./routes/platforms";
+import { revocationsRouter } from "./routes/revocations";
 
 const app = new Hono();
 
@@ -26,6 +28,7 @@ app.route("/", health);
 app.route("/", wellKnown);
 app.route("/api/v1", pairingRouter);
 app.route("/api/v1", verifyRouter);
+app.route("/api/v1", revocationsRouter);
 
 // Protected routes (Privy JWT required)
 const v1 = new Hono<AuthEnv>();
@@ -40,6 +43,7 @@ v1.get("/me", (c) => {
 
 v1.route("/agents", agentsRouter);
 v1.route("/audit", auditRouter);
+v1.route("/platforms", platformsRouter);
 
 app.route("/api/v1", v1);
 
