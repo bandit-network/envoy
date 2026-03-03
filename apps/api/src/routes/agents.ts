@@ -27,16 +27,37 @@ agentsRouter.post("/", async (c) => {
   }
 
   const user = c.get("user");
-  const { name, description } = parsed.data;
+  const { name, description, username, avatarUrl, socialMoltbook, socialX } = parsed.data;
 
-  const [agent] = await db
-    .insert(agents)
-    .values({
-      ownerId: user.userId,
-      name,
-      description: description ?? null,
-    })
-    .returning();
+  let agent;
+  try {
+    const [inserted] = await db
+      .insert(agents)
+      .values({
+        ownerId: user.userId,
+        name,
+        description: description ?? null,
+        username: username ?? null,
+        avatarUrl: avatarUrl ?? null,
+        socialMoltbook: socialMoltbook ?? null,
+        socialX: socialX ?? null,
+      })
+      .returning();
+    agent = inserted;
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as { code: string }).code === "23505" &&
+      String(err).includes("agents_username_unique")
+    ) {
+      return c.json(
+        { success: false, error: { code: "CONFLICT", message: "Username is already taken" } },
+        409
+      );
+    }
+    throw err;
+  }
 
   if (!agent) {
     throw new HTTPException(500, { message: "Failed to create agent" });
@@ -172,6 +193,10 @@ agentsRouter.patch("/:id", async (c) => {
   const updateData: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+  if (parsed.data.username !== undefined) updateData.username = parsed.data.username;
+  if (parsed.data.avatarUrl !== undefined) updateData.avatarUrl = parsed.data.avatarUrl;
+  if (parsed.data.socialMoltbook !== undefined) updateData.socialMoltbook = parsed.data.socialMoltbook;
+  if (parsed.data.socialX !== undefined) updateData.socialX = parsed.data.socialX;
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
 
   // If revoking via PATCH
@@ -185,11 +210,28 @@ agentsRouter.patch("/:id", async (c) => {
     updateData.revokedAt = null;
   }
 
-  const [updated] = await db
-    .update(agents)
-    .set(updateData)
-    .where(eq(agents.id, agentId))
-    .returning();
+  let updated;
+  try {
+    const [result] = await db
+      .update(agents)
+      .set(updateData)
+      .where(eq(agents.id, agentId))
+      .returning();
+    updated = result;
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as { code: string }).code === "23505" &&
+      String(err).includes("agents_username_unique")
+    ) {
+      return c.json(
+        { success: false, error: { code: "CONFLICT", message: "Username is already taken" } },
+        409
+      );
+    }
+    throw err;
+  }
 
   const action = parsed.data.status === "revoked" ? "agent_revoked" : "agent_updated";
   logAudit({

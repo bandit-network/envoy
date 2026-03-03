@@ -407,3 +407,228 @@ describe("GET /:id/audit - Agent audit", () => {
     expect(res.status).toBe(404);
   });
 });
+
+// -------------------------------------------------------------------
+// Profile fields: username, avatarUrl, socials
+// -------------------------------------------------------------------
+describe("Profile fields - Create", () => {
+  it("creates an agent with all profile fields", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Full Profile Agent",
+        description: "Has all fields",
+        username: "my-agent-01",
+        avatarUrl: "https://example.com/avatar.png",
+        socialMoltbook: "https://moltbook.com/myagent",
+        socialX: "https://x.com/myagent",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.username).toBe("my-agent-01");
+    expect(json.data.avatarUrl).toBe("https://example.com/avatar.png");
+    expect(json.data.socialMoltbook).toBe("https://moltbook.com/myagent");
+    expect(json.data.socialX).toBe("https://x.com/myagent");
+  });
+
+  it("creates an agent without optional profile fields", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Minimal Agent" }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.username).toBeNull();
+    expect(json.data.avatarUrl).toBeNull();
+    expect(json.data.socialMoltbook).toBeNull();
+    expect(json.data.socialX).toBeNull();
+  });
+
+  it("rejects duplicate username", async () => {
+    await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "First", username: "taken-name" }),
+    });
+
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Second", username: "taken-name" }),
+    });
+
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error.code).toBe("CONFLICT");
+  });
+
+  it("rejects invalid username format (uppercase)", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Bad Handle", username: "UPPERCASE" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects username too short", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Short", username: "ab" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects reserved username", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Reserved", username: "admin" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects invalid avatar URL", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Bad Avatar", avatarUrl: "not-a-url" }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("Profile fields - Update", () => {
+  it("updates agent username", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Handle Agent" }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "new-handle" }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.username).toBe("new-handle");
+  });
+
+  it("updates agent social links", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Social Agent" }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        socialMoltbook: "https://moltbook.com/updated",
+        socialX: "https://x.com/updated",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.socialMoltbook).toBe("https://moltbook.com/updated");
+    expect(json.data.socialX).toBe("https://x.com/updated");
+  });
+
+  it("clears nullable fields with null", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Clear Test",
+        avatarUrl: "https://example.com/img.png",
+      }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatarUrl: null }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.data.avatarUrl).toBeNull();
+  });
+
+  it("rejects duplicate username on update", async () => {
+    await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Agent A", username: "taken" }),
+    });
+
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Agent B" }),
+    });
+    const agentBId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentBId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "taken" }),
+    });
+
+    expect(res.status).toBe(409);
+  });
+});
+
+describe("Profile fields - Manifest", () => {
+  it("includes agent_username in manifest payload", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Username Agent", username: "manifest-test" }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}/manifest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.manifestJson.agent_username).toBe("manifest-test");
+  });
+
+  it("manifest has null agent_username when agent has no username", async () => {
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "No Username Agent" }),
+    });
+    const agentId = (await createRes.json()).data.id;
+
+    const res = await app.request(`/${agentId}/manifest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.manifestJson.agent_username).toBeNull();
+  });
+});
