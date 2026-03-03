@@ -102,7 +102,7 @@ function installMockFetch(options: {
   revocationError?: boolean;
 } = {}): void {
   globalThis.fetch = (async (
-    input: RequestInfo | URL,
+    input: string | URL | Request,
     init?: RequestInit
   ): Promise<Response> => {
     const url = typeof input === "string" ? input : input.toString();

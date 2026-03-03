@@ -15,6 +15,13 @@
       "when": 1772550397434,
       "tag": "0001_wandering_eddie_brock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772557532154,
+      "tag": "0002_massive_colleen_wing",
+      "breakpoints": true
     }
   ]
 }

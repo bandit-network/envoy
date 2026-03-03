@@ -48,7 +48,7 @@ export async function issueManifest(
     agent_name: agent.name,
     agent_id: agent.id,
     owner_ref: userId,
-    wallet_addresses: [], // Wallet provisioning deferred to Phase 3
+    wallet_addresses: agent.walletAddress ? [agent.walletAddress] : [],
     scopes: ["api_access"], // Default scope, will be configurable later
     policy_refs: {},
     issued_at: now.toISOString(),

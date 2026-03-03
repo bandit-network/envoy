@@ -8,6 +8,7 @@ import { logAudit } from "../services/audit";
 import { issueManifest, refreshManifest } from "../services/manifest";
 import { createPairing } from "../services/pairing";
 import { deliverWebhook } from "../services/webhook";
+import { provisionWallet } from "../services/wallet";
 
 export const agentsRouter = new Hono<AuthEnv>();
 
@@ -41,14 +42,20 @@ agentsRouter.post("/", async (c) => {
     throw new HTTPException(500, { message: "Failed to create agent" });
   }
 
+  // Provision wallet (async, never blocks agent creation)
+  const walletAddress = await provisionWallet(agent.id, user.userId);
+  const agentData = walletAddress
+    ? { ...agent, walletAddress }
+    : agent;
+
   logAudit({
     action: "agent_created",
     userId: user.userId,
     agentId: agent.id,
-    metadata: { name },
+    metadata: { name, walletAddress },
   });
 
-  return c.json({ success: true, data: agent }, 201);
+  return c.json({ success: true, data: agentData }, 201);
 });
 
 /**
