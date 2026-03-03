@@ -7,6 +7,7 @@ import { authMiddleware, type AuthEnv } from "./middleware/auth";
 import { agentsRouter } from "./routes/agents";
 import { pairingRouter } from "./routes/pairing";
 import { verifyRouter } from "./routes/verify";
+import { auditRouter } from "./routes/audit";
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ v1.get("/me", (c) => {
 });
 
 v1.route("/agents", agentsRouter);
+v1.route("/audit", auditRouter);
 
 app.route("/api/v1", v1);
 
