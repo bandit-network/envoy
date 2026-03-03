@@ -7,6 +7,7 @@ import type { AuthEnv } from "../middleware/auth";
 import { logAudit } from "../services/audit";
 import { issueManifest, refreshManifest } from "../services/manifest";
 import { createPairing } from "../services/pairing";
+import { deliverWebhook } from "../services/webhook";
 
 export const agentsRouter = new Hono<AuthEnv>();
 
@@ -234,6 +235,11 @@ agentsRouter.delete("/:id", async (c) => {
     userId: user.userId,
     agentId,
     metadata: { reason: "agent_revoked" },
+  });
+
+  deliverWebhook({
+    type: "agent.revoked",
+    data: { agentId, agentName: existing.name },
   });
 
   return c.json({ success: true, data: revoked });

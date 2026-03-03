@@ -11,6 +11,7 @@ import { verifyRouter } from "./routes/verify";
 import { auditRouter } from "./routes/audit";
 import { platformsRouter } from "./routes/platforms";
 import { revocationsRouter } from "./routes/revocations";
+import { webhooksRouter } from "./routes/webhooks";
 
 const app = new Hono();
 
@@ -75,6 +76,7 @@ v1.get("/me", (c) => {
 v1.route("/agents", agentsRouter);
 v1.route("/audit", auditRouter);
 v1.route("/platforms", platformsRouter);
+v1.route("/webhooks", webhooksRouter);
 
 app.route("/api/v1", v1);
 

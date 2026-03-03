@@ -3,6 +3,7 @@ import { eq, and, isNull } from "drizzle-orm";
 import type { ManifestPayload } from "@envoy/types";
 import { signManifest } from "../lib/issuer";
 import { logAudit } from "./audit";
+import { deliverWebhook } from "./webhook";
 
 const DEFAULT_TTL = Number(process.env.TOKEN_DEFAULT_TTL) || 3600;
 const MAX_TTL = Number(process.env.TOKEN_MAX_TTL) || 86400;
@@ -80,6 +81,11 @@ export async function issueManifest(
     metadata: { manifestId: manifest.id, expiresAt: expiresAt.toISOString() },
   });
 
+  deliverWebhook({
+    type: "manifest.issued",
+    data: { manifestId: manifest.id, agentId, expiresAt: expiresAt.toISOString() },
+  });
+
   return {
     manifestId: manifest.id,
     manifestJson: payload,
@@ -111,6 +117,11 @@ export async function revokeManifest(
   logAudit({
     action: "manifest_revoked",
     metadata: { manifestId, reason },
+  });
+
+  deliverWebhook({
+    type: "manifest.revoked",
+    data: { manifestId, reason },
   });
 }
 
