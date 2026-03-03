@@ -12,6 +12,7 @@ import { RevokeDialog } from "@/components/agents/revoke-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
+import { toast } from "sonner";
 
 interface Agent {
   id: string;
@@ -85,9 +86,12 @@ export default function AgentDetailPage() {
     setActionLoading("issue");
     try {
       await apiPost(`/api/v1/agents/${agentId}/manifest`, {}, authFetch);
+      toast.success("Manifest issued");
       await loadAgent();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to issue manifest");
+      const message = err instanceof ApiError ? err.message : "Failed to issue manifest";
+      toast.error(message);
+      setError(message);
     } finally {
       setActionLoading(null);
     }
@@ -97,9 +101,12 @@ export default function AgentDetailPage() {
     setActionLoading("refresh");
     try {
       await apiPost(`/api/v1/agents/${agentId}/refresh`, {}, authFetch);
+      toast.success("Manifest refreshed");
       await loadAgent();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to refresh manifest");
+      const message = err instanceof ApiError ? err.message : "Failed to refresh manifest";
+      toast.error(message);
+      setError(message);
     } finally {
       setActionLoading(null);
     }

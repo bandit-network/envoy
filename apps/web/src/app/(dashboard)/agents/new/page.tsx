@@ -6,6 +6,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Textarea } fro
 import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiPost, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 
 interface CreateAgentResponse {
   id: string;
@@ -30,6 +31,7 @@ export default function CreateAgentPage() {
         name: name.trim(),
         description: description.trim() || null,
       }, authFetch);
+      toast.success("Agent created");
       router.push(`/agents/${agent.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create agent");

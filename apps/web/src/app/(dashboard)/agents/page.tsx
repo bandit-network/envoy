@@ -24,6 +24,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiDelete, ApiError } from "@/lib/api";
 import { formatDate, truncateId } from "@/lib/format";
+import { toast } from "sonner";
 
 interface AgentRow {
   id: string;
@@ -75,9 +76,12 @@ export default function AgentsPage() {
   async function handleRevoke(agentId: string) {
     try {
       await apiDelete(`/api/v1/agents/${agentId}`, authFetch);
+      toast.success("Agent revoked");
       await loadAgents();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to revoke agent");
+      const message = err instanceof ApiError ? err.message : "Failed to revoke agent";
+      toast.error(message);
+      setError(message);
     }
   }
 

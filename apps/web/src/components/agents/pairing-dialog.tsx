@@ -15,6 +15,7 @@ import {
 } from "@envoy/ui";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiPost, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 
 interface PairingResult {
   pairingId: string;
@@ -62,6 +63,7 @@ export function PairingDialog({ agentId }: PairingDialogProps) {
       setTimeLeft(
         Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 1000)
       );
+      toast.success("Pairing secret generated");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to generate pairing secret");
     } finally {

@@ -16,6 +16,7 @@ import {
 } from "@envoy/ui";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiPost, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 
 interface ApiKeyResult {
   keyId: string;
@@ -48,6 +49,7 @@ export function ApiKeyDialog({ platformId, onCreated }: ApiKeyDialogProps) {
         authFetch
       );
       setResult(data);
+      toast.success("API key generated");
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to generate API key");

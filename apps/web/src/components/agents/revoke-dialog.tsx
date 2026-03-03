@@ -14,6 +14,7 @@ import {
 } from "@envoy/ui";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiDelete, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 
 interface RevokeDialogProps {
   agentId: string;
@@ -32,6 +33,7 @@ export function RevokeDialog({ agentId, agentName, onRevoked }: RevokeDialogProp
     setError(null);
     try {
       await apiDelete(`/api/v1/agents/${agentId}`, authFetch);
+      toast.success("Agent revoked");
       setOpen(false);
       onRevoked();
     } catch (err) {

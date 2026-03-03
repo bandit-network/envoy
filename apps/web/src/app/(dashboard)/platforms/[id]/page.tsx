@@ -25,6 +25,7 @@ import { ApiKeyDialog } from "@/components/platforms/api-key-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiDelete, ApiError } from "@/lib/api";
 import { formatDate, truncateId } from "@/lib/format";
+import { toast } from "sonner";
 
 interface Platform {
   id: string;
@@ -87,9 +88,12 @@ export default function PlatformDetailPage() {
   async function handleRevokeKey(keyId: string) {
     try {
       await apiDelete(`/api/v1/platforms/${platformId}/api-keys/${keyId}`, authFetch);
+      toast.success("API key revoked");
       await loadPlatform();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to revoke API key");
+      const message = err instanceof ApiError ? err.message : "Failed to revoke API key";
+      toast.error(message);
+      setError(message);
     }
   }
 

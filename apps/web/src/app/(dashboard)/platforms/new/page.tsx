@@ -6,6 +6,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@envoy/
 import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiPost, ApiError } from "@/lib/api";
+import { toast } from "sonner";
 
 interface CreatePlatformResponse {
   id: string;
@@ -36,6 +37,7 @@ export default function CreatePlatformPage() {
         },
         authFetch
       );
+      toast.success("Platform registered");
       router.push(`/platforms/${platform.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to register platform");

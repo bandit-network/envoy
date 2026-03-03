@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiDelete, ApiError } from "@/lib/api";
 import { formatDate } from "@/lib/format";
+import { toast } from "sonner";
 
 interface PlatformRow {
   id: string;
@@ -68,9 +69,12 @@ export default function PlatformsPage() {
   async function handleDelete(platformId: string) {
     try {
       await apiDelete(`/api/v1/platforms/${platformId}`, authFetch);
+      toast.success("Platform revoked");
       await loadPlatforms();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to revoke platform");
+      const message = err instanceof ApiError ? err.message : "Failed to revoke platform";
+      toast.error(message);
+      setError(message);
     }
   }
 
