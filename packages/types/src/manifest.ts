@@ -3,6 +3,7 @@ import { z } from "zod";
 /** Schema for the signed manifest payload embedded in a JWS */
 export const manifestPayloadSchema = z.object({
   agent_name: z.string(),
+  agent_username: z.string().nullable(),
   agent_id: z.string().uuid(),
   owner_ref: z.string(),
   wallet_addresses: z.array(z.string()),

@@ -46,6 +46,7 @@ export async function issueManifest(
   // Build manifest payload
   const payload: ManifestPayload = {
     agent_name: agent.name,
+    agent_username: agent.username ?? null,
     agent_id: agent.id,
     owner_ref: userId,
     wallet_addresses: agent.walletAddress ? [agent.walletAddress] : [],
