@@ -18,6 +18,10 @@ interface Agent {
   id: string;
   name: string;
   description: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  socialMoltbook: string | null;
+  socialX: string | null;
   status: string;
   walletAddress: string | null;
   createdAt: string;

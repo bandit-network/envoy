@@ -24,12 +24,15 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiDelete, ApiError } from "@/lib/api";
 import { formatDate, truncateId } from "@/lib/format";
+import { getAgentAvatarUrl } from "@/lib/avatar";
 import { toast } from "sonner";
 
 interface AgentRow {
   id: string;
   name: string;
   description: string | null;
+  username: string | null;
+  avatarUrl: string | null;
   status: string;
   createdAt: string;
 }
@@ -128,6 +131,7 @@ export default function AgentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12" />
               <TableHead>Name</TableHead>
               <TableHead>ID</TableHead>
               <TableHead>Status</TableHead>
@@ -139,12 +143,26 @@ export default function AgentsPage() {
             {agents.map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getAgentAvatarUrl(agent.id, agent.avatarUrl)}
+                    alt={agent.name}
+                    className="h-8 w-8 rounded-full bg-surface object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getAgentAvatarUrl(agent.id, null);
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
                   <Link
                     href={`/agents/${agent.id}`}
                     className="font-medium text-foreground hover:text-accent"
                   >
                     {agent.name}
                   </Link>
+                  {agent.username && (
+                    <p className="text-xs text-muted">@{agent.username}</p>
+                  )}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted">
                   {truncateId(agent.id)}
