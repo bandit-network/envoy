@@ -15,3 +15,13 @@ export { confirmPairingSchema } from "./pairing";
 export type { ConfirmPairingInput } from "./pairing";
 export { verifyTokenSchema } from "./verification";
 export type { VerifyTokenInput } from "./verification";
+export {
+  createPlatformSchema,
+  updatePlatformSchema,
+  registerApiKeySchema,
+} from "./platform";
+export type {
+  CreatePlatformInput,
+  UpdatePlatformInput,
+  RegisterApiKeyInput,
+} from "./platform";

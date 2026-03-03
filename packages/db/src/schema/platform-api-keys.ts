@@ -7,6 +7,8 @@ export const platformApiKeys = pgTable("platform_api_keys", {
     .notNull()
     .references(() => platforms.id),
   keyHash: text("key_hash").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  label: text("label"),
   scopes: jsonb("scopes").$type<string[]>().notNull().default([]),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
