@@ -4,6 +4,7 @@ import { logger } from "hono/logger";
 import { health } from "./routes/health";
 import { wellKnown } from "./routes/well-known";
 import { authMiddleware, type AuthEnv } from "./middleware/auth";
+import { agentsRouter } from "./routes/agents";
 
 const app = new Hono();
 
@@ -31,6 +32,8 @@ v1.get("/me", (c) => {
     data: { user: c.get("user") },
   });
 });
+
+v1.route("/agents", agentsRouter);
 
 app.route("/api/v1", v1);
 
