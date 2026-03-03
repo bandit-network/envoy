@@ -22,6 +22,7 @@ export function ManifestCard({ manifest }: ManifestCardProps) {
   const isActive = !isExpired && !isRevoked;
 
   const scopes = (manifest.manifestJson.scopes as string[]) ?? [];
+  const walletAddresses = (manifest.manifestJson.wallet_addresses as string[]) ?? [];
 
   return (
     <Card>
@@ -50,6 +51,19 @@ export function ManifestCard({ manifest }: ManifestCardProps) {
             <dt className="text-muted">Expires</dt>
             <dd className="mt-0.5">{formatDateTime(manifest.expiresAt)}</dd>
           </div>
+          {walletAddresses.length > 0 && (
+            <div>
+              <dt className="text-muted">Wallet Addresses</dt>
+              <dd className="mt-0.5 flex flex-wrap gap-1">
+                {walletAddresses.map((addr) => (
+                  <span key={addr} className="flex items-center gap-1 font-mono text-xs">
+                    {addr.slice(0, 6)}...{addr.slice(-4)}
+                    <CopyButton value={addr} />
+                  </span>
+                ))}
+              </dd>
+            </div>
+          )}
           {scopes.length > 0 && (
             <div>
               <dt className="text-muted">Scopes</dt>

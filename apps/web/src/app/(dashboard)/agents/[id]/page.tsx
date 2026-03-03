@@ -19,6 +19,7 @@ interface Agent {
   name: string;
   description: string | null;
   status: string;
+  walletAddress: string | null;
   createdAt: string;
   updatedAt: string;
   revokedAt: string | null;

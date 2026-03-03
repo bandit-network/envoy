@@ -15,6 +15,7 @@ interface AgentInfoCardProps {
     name: string;
     description: string | null;
     status: string;
+    walletAddress?: string | null;
     createdAt: string;
     revokedAt: string | null;
   };
@@ -43,6 +44,19 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
             <dd className="mt-0.5 flex items-center gap-1 font-mono text-xs">
               {truncateId(agent.id)}
               <CopyButton value={agent.id} />
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted">Wallet</dt>
+            <dd className="mt-0.5 flex items-center gap-1 font-mono text-xs">
+              {agent.walletAddress ? (
+                <>
+                  {truncateId(agent.walletAddress)}
+                  <CopyButton value={agent.walletAddress} />
+                </>
+              ) : (
+                <span className="text-muted">Not provisioned</span>
+              )}
             </dd>
           </div>
           <div>
