@@ -8,8 +8,6 @@ import {
   Badge,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   CopyButton,
   Table,
   TableHeader,
@@ -20,7 +18,6 @@ import {
   Skeleton,
   EmptyState,
 } from "@envoy/ui";
-import { PageHeader } from "@/components/layout/page-header";
 import { ApiKeyDialog } from "@/components/platforms/api-key-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiDelete, ApiError } from "@/lib/api";
@@ -68,14 +65,22 @@ export default function PlatformDetailPage() {
   const loadPlatform = useCallback(async () => {
     try {
       const [detailData, keysData] = await Promise.all([
-        apiGet<PlatformDetailResponse>(`/api/v1/platforms/${platformId}`, authFetch),
-        apiGet<ApiKeysResponse>(`/api/v1/platforms/${platformId}/api-keys`, authFetch),
+        apiGet<PlatformDetailResponse>(
+          `/api/v1/platforms/${platformId}`,
+          authFetch
+        ),
+        apiGet<ApiKeysResponse>(
+          `/api/v1/platforms/${platformId}/api-keys`,
+          authFetch
+        ),
       ]);
       setPlatform(detailData.platform);
       setKeys(keysData.keys);
       setError(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to load platform");
+      setError(
+        err instanceof ApiError ? err.message : "Failed to load platform"
+      );
     } finally {
       setLoading(false);
     }
@@ -87,11 +92,15 @@ export default function PlatformDetailPage() {
 
   async function handleRevokeKey(keyId: string) {
     try {
-      await apiDelete(`/api/v1/platforms/${platformId}/api-keys/${keyId}`, authFetch);
+      await apiDelete(
+        `/api/v1/platforms/${platformId}/api-keys/${keyId}`,
+        authFetch
+      );
       toast.success("API key revoked");
       await loadPlatform();
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Failed to revoke API key";
+      const message =
+        err instanceof ApiError ? err.message : "Failed to revoke API key";
       toast.error(message);
       setError(message);
     }
@@ -101,8 +110,10 @@ export default function PlatformDetailPage() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-40 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
       </div>
     );
   }
@@ -110,10 +121,11 @@ export default function PlatformDetailPage() {
   if (error && !platform) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Platform" />
-        <div className="rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+        <div className="rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger">
+          {error}
+        </div>
         <Button variant="ghost" onClick={() => router.push("/platforms")}>
-          Back to platforms
+          ← Back to platforms
         </Button>
       </div>
     );
@@ -125,111 +137,129 @@ export default function PlatformDetailPage() {
   const revokedKeys = keys.filter((k) => k.revokedAt);
 
   return (
-    <div>
-      <PageHeader
-        title={platform.name}
-        action={
-          <Button variant="ghost" asChild>
-            <Link href="/platforms">Back to platforms</Link>
-          </Button>
-        }
-      />
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/platforms"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </Link>
+          <div>
+            <h1 className="text-[20px] font-semibold text-foreground">{platform.name}</h1>
+            <p className="text-[13px] text-muted">{platform.domain}</p>
+          </div>
+        </div>
+        {!platform.revokedAt && (
+          <ApiKeyDialog platformId={platformId} onCreated={() => loadPlatform()} />
+        )}
+      </div>
 
       {error && (
-        <div className="mb-4 rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+        <div className="mb-4 rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger">
+          {error}
+        </div>
       )}
 
-      <div className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Platform Info */}
         <Card>
-          <CardHeader>
-            <CardTitle>Platform Info</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted">Platform ID</dt>
-                <dd className="mt-0.5 flex items-center gap-1 font-mono text-xs">
-                  {truncateId(platform.id)}
-                  <CopyButton value={platform.id} />
+          <CardContent className="p-6">
+            <h3 className="text-[14px] font-semibold text-foreground">Platform Info</h3>
+            <div className="mt-5 space-y-0 divide-y divide-border">
+              <div className="flex items-center justify-between py-3 first:pt-0">
+                <div>
+                  <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Platform ID</dt>
+                  <dd className="mt-0.5 font-mono text-[12px] text-foreground">{truncateId(platform.id)}</dd>
+                </div>
+                <CopyButton value={platform.id} />
+              </div>
+              <div className="py-3">
+                <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Domain</dt>
+                <dd className="mt-0.5 text-[13px] text-foreground">{platform.domain}</dd>
+              </div>
+              <div className="py-3">
+                <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Created</dt>
+                <dd className="mt-0.5 text-[13px] text-foreground">{formatDate(platform.createdAt)}</dd>
+              </div>
+              <div className="py-3">
+                <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Webhook</dt>
+                <dd className="mt-0.5 flex items-center gap-2">
+                  {platform.webhookUrl ? (
+                    <>
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                      <span className="truncate font-mono text-[12px] text-foreground">
+                        {platform.webhookUrl}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="h-1.5 w-1.5 rounded-full bg-border" />
+                      <span className="text-[13px] text-muted">Not configured</span>
+                    </>
+                  )}
                 </dd>
               </div>
-              <div>
-                <dt className="text-muted">Domain</dt>
-                <dd className="mt-0.5">{platform.domain}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Created</dt>
-                <dd className="mt-0.5">{formatDate(platform.createdAt)}</dd>
-              </div>
-              {platform.webhookUrl && (
-                <div>
-                  <dt className="text-muted">Webhook URL</dt>
-                  <dd className="mt-0.5 truncate font-mono text-xs">{platform.webhookUrl}</dd>
-                </div>
-              )}
-            </dl>
+            </div>
           </CardContent>
         </Card>
 
+        {/* API Keys */}
         <Card>
-          <CardHeader>
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">API Keys</CardTitle>
-              {!platform.revokedAt && (
-                <ApiKeyDialog platformId={platformId} onCreated={() => loadPlatform()} />
-              )}
+              <h3 className="text-[14px] font-semibold text-foreground">
+                API Keys
+                {keys.length > 0 && (
+                  <span className="ml-2 text-[12px] font-normal text-muted">
+                    {activeKeys.length} active
+                  </span>
+                )}
+              </h3>
             </div>
-          </CardHeader>
-          <CardContent>
+
             {keys.length === 0 ? (
-              <EmptyState
-                title="No API keys"
-                description="Generate an API key to enable token verification."
-                className="py-6"
-              />
+              <div className="mt-6 text-center">
+                <p className="text-[13px] text-muted">No API keys yet</p>
+                <p className="mt-1 text-[12px] text-muted">
+                  Generate an API key to enable token verification.
+                </p>
+              </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Key</TableHead>
-                    <TableHead>Label</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="w-12" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[...activeKeys, ...revokedKeys].map((key) => (
-                    <TableRow key={key.id}>
-                      <TableCell className="font-mono text-xs">
-                        {key.keyPrefix}...
-                      </TableCell>
-                      <TableCell className="text-muted">
-                        {key.label ?? "--"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={key.revokedAt ? "danger" : "success"}>
-                          {key.revokedAt ? "revoked" : "active"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted">
-                        {formatDate(key.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        {!key.revokedAt && (
-                          <button
-                            type="button"
-                            onClick={() => handleRevokeKey(key.id)}
-                            className="text-xs font-medium text-danger hover:text-danger/80"
-                          >
-                            Revoke
-                          </button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="mt-4 space-y-0 divide-y divide-border">
+                {[...activeKeys, ...revokedKeys].map((key) => (
+                  <div key={key.id} className="flex items-center justify-between py-3 first:pt-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <code className="font-mono text-[12px] text-foreground">{key.keyPrefix}...</code>
+                        <span className={`h-1.5 w-1.5 rounded-full ${key.revokedAt ? "bg-danger" : "bg-success"}`} />
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <span className="text-[12px] text-muted">
+                          {key.label ?? "Unlabeled"}
+                        </span>
+                        <span className="text-[11px] text-muted">·</span>
+                        <span className="text-[12px] text-muted">
+                          {formatDate(key.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    {!key.revokedAt && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevokeKey(key.id)}
+                        className="shrink-0 text-[12px] font-medium text-danger transition-colors hover:text-danger/80"
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

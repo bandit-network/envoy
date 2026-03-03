@@ -55,6 +55,16 @@
         "typescript": "^5",
       },
     },
+    "packages/agent-sdk": {
+      "name": "@envoy/agent-sdk",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^3.24.2",
+      },
+      "devDependencies": {
+        "typescript": "^5.8.2",
+      },
+    },
     "packages/config": {
       "name": "@envoy/config",
       "version": "0.0.1",
@@ -178,6 +188,8 @@
     "@emotion/memoize": ["@emotion/memoize@0.9.0", "", {}, "sha512-30FAj7/EoJ5mwVPOWhAyCX+FPfMDrVecJAM+Iw9NRoSl4BBAQeqj4cApHHUXOVvIPgLVDsCFoz/hGD+5QQD1GQ=="],
 
     "@emotion/unitless": ["@emotion/unitless@0.10.0", "", {}, "sha512-dFoMUuQA20zvtVTuxZww6OHoJYgrzfKM1t52mVySDJnMSEa08ruEvdYQbhvyu6soU+NeLVd3yKfTfT0NeV6qGg=="],
+
+    "@envoy/agent-sdk": ["@envoy/agent-sdk@workspace:packages/agent-sdk"],
 
     "@envoy/api": ["@envoy/api@workspace:apps/api"],
 

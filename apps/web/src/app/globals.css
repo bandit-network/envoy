@@ -18,29 +18,29 @@
 /* Light theme (default) */
 :root {
   --background: #FFFFFF;
-  --surface: #F9F9FB;
-  --elevated: #F1F0F5;
-  --border: #E2DFED;
-  --foreground: #18181B;
-  --muted: #6B6879;
-  --accent: #18181B;
+  --surface: #FAFAFA;
+  --elevated: #F5F5F5;
+  --border: #EAEAEA;
+  --foreground: #171717;
+  --muted: #666666;
+  --accent: #171717;
   --accent-fg: #FFFFFF;
-  --danger: #DC2626;
-  --success: #16A34A;
+  --danger: #E00;
+  --success: #0070F3;
 }
 
 /* Dark theme */
 .dark {
-  --background: #09090B;
-  --surface: #18181B;
-  --elevated: #27272A;
-  --border: #3F3F46;
-  --foreground: #FAFAFA;
-  --muted: #A1A1AA;
-  --accent: #E2DFED;
-  --accent-fg: #18181B;
-  --danger: #EF4444;
-  --success: #22C55E;
+  --background: #0A0A0A;
+  --surface: #111111;
+  --elevated: #1A1A1A;
+  --border: #333333;
+  --foreground: #EDEDED;
+  --muted: #888888;
+  --accent: #EDEDED;
+  --accent-fg: #0A0A0A;
+  --danger: #F31;
+  --success: #0070F3;
 }
 
 html {
@@ -50,6 +50,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 ::selection {
@@ -74,4 +75,32 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.5s ease-out;
 }

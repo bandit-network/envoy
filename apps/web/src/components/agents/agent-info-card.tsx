@@ -1,14 +1,14 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, Badge, CopyButton } from "@envoy/ui";
+import { Card, CardContent, Badge, CopyButton } from "@envoy/ui";
 import { formatDate, truncateId } from "@/lib/format";
 import { getAgentAvatarUrl, getAgentInitials } from "@/lib/avatar";
 import { useState } from "react";
 
-const statusBadgeVariant: Record<string, "success" | "danger" | "warning" | "muted"> = {
-  active: "success",
-  suspended: "warning",
-  revoked: "danger",
+const statusConfig: Record<string, { variant: "success" | "danger" | "warning" | "muted"; label: string; dot: string }> = {
+  active: { variant: "success", label: "Active", dot: "bg-success" },
+  suspended: { variant: "warning", label: "Suspended", dot: "bg-yellow-500" },
+  revoked: { variant: "danger", label: "Revoked", dot: "bg-danger" },
 };
 
 interface AgentInfoCardProps {
@@ -31,14 +31,15 @@ interface AgentInfoCardProps {
 export function AgentInfoCard({ agent }: AgentInfoCardProps) {
   const [imgError, setImgError] = useState(false);
   const avatarSrc = getAgentAvatarUrl(agent.id, agent.avatarUrl);
+  const status = statusConfig[agent.status] ?? { variant: "muted" as const, label: agent.status, dot: "bg-muted" };
 
   return (
     <Card>
-      <CardHeader>
+      <CardContent className="p-6">
+        {/* Top: Avatar + Name + Status */}
         <div className="flex items-start gap-4">
-          {/* Avatar */}
           {imgError ? (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface text-sm font-medium text-muted">
+            <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-elevated text-[18px] font-semibold text-muted">
               {getAgentInitials(agent.name)}
             </div>
           ) : (
@@ -46,44 +47,49 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
             <img
               src={avatarSrc}
               alt={agent.name}
-              className="h-12 w-12 shrink-0 rounded-full bg-surface object-cover"
+              className="h-[72px] w-[72px] shrink-0 rounded-full bg-elevated object-cover"
               onError={() => setImgError(true)}
             />
           )}
 
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>{agent.name}</CardTitle>
+                <h2 className="text-[18px] font-semibold text-foreground">{agent.name}</h2>
                 {agent.username && (
-                  <p className="mt-0.5 text-sm text-muted">@{agent.username}</p>
-                )}
-                {agent.description && (
-                  <p className="mt-1 text-sm text-muted">{agent.description}</p>
+                  <p className="mt-0.5 text-[13px] text-muted">@{agent.username}</p>
                 )}
               </div>
-              <Badge variant={statusBadgeVariant[agent.status] ?? "muted"}>
-                {agent.status}
-              </Badge>
+              <div className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
+                <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                <span className="text-[12px] font-medium text-foreground capitalize">
+                  {status.label}
+                </span>
+              </div>
             </div>
+            {agent.description && (
+              <p className="mt-2 text-[13px] leading-[20px] text-muted">
+                {agent.description}
+              </p>
+            )}
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+
+        {/* Details Grid */}
+        <div className="mt-6 grid gap-4 border-t border-border pt-6 sm:grid-cols-2">
           <div>
-            <dt className="text-muted">Agent ID</dt>
-            <dd className="mt-0.5 flex items-center gap-1 font-mono text-xs">
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Agent ID</dt>
+            <dd className="mt-1 flex items-center gap-1.5 font-mono text-[13px] text-foreground">
               {truncateId(agent.id)}
               <CopyButton value={agent.id} />
             </dd>
           </div>
           <div>
-            <dt className="text-muted">Wallet</dt>
-            <dd className="mt-0.5 flex items-center gap-1 font-mono text-xs">
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Wallet</dt>
+            <dd className="mt-1 flex items-center gap-1.5 font-mono text-[13px]">
               {agent.walletAddress ? (
                 <>
-                  {truncateId(agent.walletAddress)}
+                  <span className="text-foreground">{truncateId(agent.walletAddress)}</span>
                   <CopyButton value={agent.walletAddress} />
                 </>
               ) : (
@@ -91,56 +97,69 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
               )}
             </dd>
           </div>
-          {agent.scopes && agent.scopes.length > 0 && (
-            <div className="sm:col-span-2">
-              <dt className="text-muted">Scopes</dt>
-              <dd className="mt-1 flex flex-wrap gap-1.5">
-                {agent.scopes.map((scope) => (
-                  <Badge key={scope} variant="muted">
-                    {scope.replace("_", " ")}
-                  </Badge>
-                ))}
-              </dd>
-            </div>
-          )}
           <div>
-            <dt className="text-muted">Created</dt>
-            <dd className="mt-0.5">{formatDate(agent.createdAt)}</dd>
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Created</dt>
+            <dd className="mt-1 text-[13px] text-foreground">{formatDate(agent.createdAt)}</dd>
           </div>
           {agent.revokedAt && (
             <div>
-              <dt className="text-muted">Revoked</dt>
-              <dd className="mt-0.5 text-danger">{formatDate(agent.revokedAt)}</dd>
+              <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Revoked</dt>
+              <dd className="mt-1 text-[13px] text-danger">{formatDate(agent.revokedAt)}</dd>
             </div>
           )}
-          {(agent.socialMoltbook || agent.socialX) && (
-            <div className="sm:col-span-2">
-              <dt className="text-muted">Socials</dt>
-              <dd className="mt-0.5 flex items-center gap-3">
-                {agent.socialMoltbook && (
-                  <a
-                    href={agent.socialMoltbook}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-accent hover:text-accent/80"
-                  >
-                    Moltbook ↗
-                  </a>
-                )}
-                {agent.socialX && (
-                  <a
-                    href={agent.socialX}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-accent hover:text-accent/80"
-                  >
-                    X ↗
-                  </a>
-                )}
-              </dd>
-            </div>
-          )}
-        </dl>
+        </div>
+
+        {/* Scopes */}
+        {agent.scopes && agent.scopes.length > 0 && (
+          <div className="mt-6 border-t border-border pt-6">
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Scopes</dt>
+            <dd className="mt-2 flex flex-wrap gap-1.5">
+              {agent.scopes.map((scope) => (
+                <span
+                  key={scope}
+                  className="rounded-md border border-border bg-elevated px-2 py-0.5 font-mono text-[11px] text-foreground"
+                >
+                  {scope}
+                </span>
+              ))}
+            </dd>
+          </div>
+        )}
+
+        {/* Social Links */}
+        {(agent.socialMoltbook || agent.socialX) && (
+          <div className="mt-6 border-t border-border pt-6">
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Links</dt>
+            <dd className="mt-2 flex items-center gap-4">
+              {agent.socialMoltbook && (
+                <a
+                  href={agent.socialMoltbook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-foreground"
+                >
+                  Moltbook
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                  </svg>
+                </a>
+              )}
+              {agent.socialX && (
+                <a
+                  href={agent.socialX}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[13px] text-muted transition-colors hover:text-foreground"
+                >
+                  X
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                  </svg>
+                </a>
+              )}
+            </dd>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

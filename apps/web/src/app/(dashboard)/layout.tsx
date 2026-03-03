@@ -30,7 +30,9 @@ export default function DashboardLayout({
             <span className="text-sm font-bold tracking-widest text-foreground">ENVOY</span>
           </header>
 
-          <main className="flex-1 p-4 sm:p-6 md:p-8">{children}</main>
+          <main className="flex-1 p-6 sm:p-8 lg:p-10">
+            <div className="mx-auto w-full max-w-[1200px]">{children}</div>
+          </main>
         </div>
       </div>
     </AuthGuard>

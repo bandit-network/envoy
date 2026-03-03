@@ -6,16 +6,17 @@ import { cn } from "../lib/cn";
 import { Spinner } from "./spinner";
 
 const variants = {
-  default: "bg-accent text-accent-fg hover:bg-accent/90",
+  default: "bg-foreground text-background hover:opacity-90",
   outline: "border border-border bg-transparent text-foreground hover:bg-surface",
   ghost: "bg-transparent text-foreground hover:bg-surface",
   danger: "bg-danger text-white hover:bg-danger/90",
+  destructive: "border border-danger/30 bg-transparent text-danger hover:bg-danger/5",
 } as const;
 
 const sizes = {
-  sm: "h-8 px-3 text-xs",
-  md: "h-9 px-4 text-sm",
-  lg: "h-10 px-6 text-sm",
+  sm: "h-8 px-3 text-[13px]",
+  md: "h-9 px-4 text-[13px]",
+  lg: "h-10 px-5 text-[14px]",
 } as const;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -45,7 +46,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+          "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
           variants[variant],
           sizes[size],
           className
