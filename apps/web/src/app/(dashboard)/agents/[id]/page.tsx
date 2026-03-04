@@ -7,7 +7,6 @@ import { Button, Card, CardContent, Skeleton, Badge } from "@envoy/ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { AgentInfoCard } from "@/components/agents/agent-info-card";
 import { ManifestCard } from "@/components/agents/manifest-card";
-import { PairingDialog } from "@/components/agents/pairing-dialog";
 import { RevokeDialog } from "@/components/agents/revoke-dialog";
 import { EditAgentDialog } from "@/components/agents/edit-agent-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
@@ -101,22 +100,6 @@ export default function AgentDetailPage() {
   useEffect(() => {
     loadAgent();
   }, [loadAgent]);
-
-  async function handleIssueManifest() {
-    setActionLoading("issue");
-    try {
-      await apiPost(`/api/v1/agents/${agentId}/manifest`, {}, authFetch);
-      toast.success("Manifest issued");
-      await loadAgent();
-    } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : "Failed to issue manifest";
-      toast.error(message);
-      setError(message);
-    } finally {
-      setActionLoading(null);
-    }
-  }
 
   async function handleRefreshManifest() {
     setActionLoading("refresh");
@@ -220,15 +203,7 @@ export default function AgentDetailPage() {
         {isActive && (
           <div className="flex flex-wrap items-center gap-2">
             <EditAgentDialog agent={agent} onSaved={() => loadAgent()} />
-            {!manifest ? (
-              <Button
-                size="sm"
-                onClick={handleIssueManifest}
-                loading={actionLoading === "issue"}
-              >
-                Issue Manifest
-              </Button>
-            ) : (
+            {manifest && (
               <Button
                 size="sm"
                 variant="outline"
@@ -238,7 +213,6 @@ export default function AgentDetailPage() {
                 Refresh Manifest
               </Button>
             )}
-            <PairingDialog agentId={agentId} />
             <Button
               size="sm"
               variant="outline"
