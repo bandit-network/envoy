@@ -33,3 +33,38 @@ export interface VerificationResult {
   /** Error message if verification failed. */
   error?: string;
 }
+
+/** Options for createMiddleware(). */
+export interface MiddlewareOptions {
+  /** Required scopes — the token must have all of these. */
+  scopes?: string[];
+}
+
+/**
+ * Thrown when a verified token does not have the required scopes.
+ */
+export class EnvoyInsufficientScopesError extends Error {
+  public readonly required: string[];
+  public readonly actual: string[];
+
+  constructor(required: string[], actual: string[]) {
+    const missing = required.filter((s) => !actual.includes(s));
+    super(`Insufficient scopes: missing ${missing.join(", ")}`);
+    this.name = "EnvoyInsufficientScopesError";
+    this.required = required;
+    this.actual = actual;
+  }
+}
+
+/**
+ * Thrown when token verification fails in middleware.
+ */
+export class EnvoyVerificationError extends Error {
+  public readonly result: VerificationResult;
+
+  constructor(message: string, result: VerificationResult) {
+    super(message);
+    this.name = "EnvoyVerificationError";
+    this.result = result;
+  }
+}

@@ -11,6 +11,7 @@ export const manifests = pgTable("manifests", {
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  expiryNotifiedAt: timestamp("expiry_notified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

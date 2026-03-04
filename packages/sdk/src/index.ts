@@ -3,9 +3,15 @@ import type {
   EnvoyVerifierOptions,
   ManifestPayload,
   VerificationResult,
+  MiddlewareOptions,
+} from "./types";
+import {
+  EnvoyInsufficientScopesError,
+  EnvoyVerificationError,
 } from "./types";
 
-export type { EnvoyVerifierOptions, ManifestPayload, VerificationResult };
+export type { EnvoyVerifierOptions, ManifestPayload, VerificationResult, MiddlewareOptions };
+export { EnvoyInsufficientScopesError, EnvoyVerificationError };
 
 /**
  * EnvoyVerifier -- Platform SDK for verifying Envoy agent tokens.
@@ -147,6 +153,66 @@ export class EnvoyVerifier {
       expired: false,
       revoked: false,
       scopes: payload.scopes ?? [],
+    };
+  }
+
+  /**
+   * Check if a verification result has all the required scopes.
+   * Returns true if the result's scopes include every scope in `required`.
+   */
+  hasScopes(result: VerificationResult, required: string[]): boolean {
+    return required.every((s) => result.scopes.includes(s));
+  }
+
+  /**
+   * Assert that a verification result has all the required scopes.
+   * Throws EnvoyInsufficientScopesError if any required scope is missing.
+   *
+   * @throws {EnvoyInsufficientScopesError} If the result is missing required scopes
+   */
+  requireScopes(result: VerificationResult, required: string[]): void {
+    if (!this.hasScopes(result, required)) {
+      throw new EnvoyInsufficientScopesError(required, result.scopes);
+    }
+  }
+
+  /**
+   * Create a reusable verification function with optional scope enforcement.
+   * Useful for building framework-specific middleware.
+   *
+   * The returned function verifies the token and optionally checks scopes.
+   * On any failure (invalid, expired, revoked, insufficient scopes), it throws.
+   *
+   * @example
+   * ```ts
+   * const guard = verifier.createMiddleware({ scopes: ["trade"] });
+   *
+   * // In your route handler:
+   * const result = await guard(bearerToken);
+   * console.log(result.manifest.agent_name);
+   * ```
+   *
+   * @throws {EnvoyVerificationError} If the token is invalid, expired, or revoked
+   * @throws {EnvoyInsufficientScopesError} If the token lacks required scopes
+   */
+  createMiddleware(
+    options?: MiddlewareOptions
+  ): (token: string) => Promise<VerificationResult> {
+    return async (token: string): Promise<VerificationResult> => {
+      const result = await this.verify(token);
+
+      if (!result.valid) {
+        throw new EnvoyVerificationError(
+          result.error ?? "Token verification failed",
+          result
+        );
+      }
+
+      if (options?.scopes && options.scopes.length > 0) {
+        this.requireScopes(result, options.scopes);
+      }
+
+      return result;
     };
   }
 

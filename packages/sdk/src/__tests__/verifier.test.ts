@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from "bun:test";
 import { importPKCS8, exportJWK, SignJWT, type JWK } from "jose";
-import { EnvoyVerifier } from "../index";
+import { EnvoyVerifier, EnvoyInsufficientScopesError, EnvoyVerificationError } from "../index";
 
 // ----- Test Key Setup -----
 // We sign JWTs with a real RSA key pair, then mock the JWKS endpoint to serve the public half.
@@ -280,5 +280,128 @@ describe("resetKeys", () => {
     // Verify again after reset — should still work
     const result = await verifier.verify(token);
     expect(result.valid).toBe(true);
+  });
+});
+
+// -------------------------------------------------------------------
+// hasScopes
+// -------------------------------------------------------------------
+describe("hasScopes", () => {
+  it("returns true when scopes are present", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const token = await signTestToken({ scopes: ["api_access", "trade", "write"] });
+    const result = await verifier.verify(token);
+
+    expect(verifier.hasScopes(result, ["api_access", "trade"])).toBe(true);
+  });
+
+  it("returns false when scopes are missing", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const token = await signTestToken({ scopes: ["api_access"] });
+    const result = await verifier.verify(token);
+
+    expect(verifier.hasScopes(result, ["api_access", "trade"])).toBe(false);
+  });
+});
+
+// -------------------------------------------------------------------
+// requireScopes
+// -------------------------------------------------------------------
+describe("requireScopes", () => {
+  it("passes when scopes match", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const token = await signTestToken({ scopes: ["api_access", "trade"] });
+    const result = await verifier.verify(token);
+
+    // Should not throw
+    expect(() => verifier.requireScopes(result, ["api_access"])).not.toThrow();
+  });
+
+  it("throws EnvoyInsufficientScopesError when scopes are missing", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const token = await signTestToken({ scopes: ["api_access"] });
+    const result = await verifier.verify(token);
+
+    try {
+      verifier.requireScopes(result, ["api_access", "trade", "write"]);
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyInsufficientScopesError);
+      const scopeErr = err as EnvoyInsufficientScopesError;
+      expect(scopeErr.required).toEqual(["api_access", "trade", "write"]);
+      expect(scopeErr.actual).toEqual(["api_access"]);
+      expect(scopeErr.message).toContain("trade");
+      expect(scopeErr.message).toContain("write");
+    }
+  });
+});
+
+// -------------------------------------------------------------------
+// createMiddleware
+// -------------------------------------------------------------------
+describe("createMiddleware", () => {
+  it("returns valid result for a good token", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const guard = verifier.createMiddleware({ scopes: ["api_access"] });
+    const token = await signTestToken({ scopes: ["api_access", "trade"] });
+
+    const result = await guard(token);
+    expect(result.valid).toBe(true);
+    expect(result.manifest!.agent_name).toBe("Test Agent");
+  });
+
+  it("throws EnvoyVerificationError for invalid token", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const guard = verifier.createMiddleware();
+
+    try {
+      await guard("not.a.valid.token");
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyVerificationError);
+      const verErr = err as EnvoyVerificationError;
+      expect(verErr.result.valid).toBe(false);
+    }
+  });
+
+  it("throws EnvoyInsufficientScopesError when scopes are insufficient", async () => {
+    installMockFetch();
+    const verifier = new EnvoyVerifier({
+      issuerUrl: "https://api.useenvoy.dev",
+    });
+
+    const guard = verifier.createMiddleware({ scopes: ["trade", "write"] });
+    const token = await signTestToken({ scopes: ["api_access"] });
+
+    try {
+      await guard(token);
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyInsufficientScopesError);
+    }
   });
 });

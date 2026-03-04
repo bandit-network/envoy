@@ -4,7 +4,7 @@ import { enqueueWebhook } from "./webhook-queue";
 
 const WEBHOOK_SIGNING_SECRET = process.env.WEBHOOK_SIGNING_SECRET ?? "dev-webhook-secret";
 
-export type WebhookEventType = "manifest.revoked" | "agent.revoked" | "manifest.issued";
+export type WebhookEventType = "manifest.revoked" | "agent.revoked" | "manifest.issued" | "manifest.expiring";
 
 interface WebhookEvent {
   type: WebhookEventType;

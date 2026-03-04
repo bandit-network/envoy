@@ -14,6 +14,7 @@ import { revocationsRouter } from "./routes/revocations";
 import { webhooksRouter } from "./routes/webhooks";
 import { tokenRouter } from "./routes/token";
 import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
+import { startExpiryScanner, stopExpiryScanner } from "./services/expiry-scanner";
 
 const app = new Hono();
 
@@ -95,18 +96,21 @@ app.route("/api/v1", v1);
 
 const port = Number(process.env.API_PORT) || 3001;
 
-// Start webhook worker
+// Start webhook worker + expiry scanner
 startWebhookWorker();
+startExpiryScanner();
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("[api] SIGTERM received, shutting down...");
+  stopExpiryScanner();
   await stopWebhookWorker();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
   console.log("[api] SIGINT received, shutting down...");
+  stopExpiryScanner();
   await stopWebhookWorker();
   process.exit(0);
 });

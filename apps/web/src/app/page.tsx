@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
 function ArrowRightIcon({ className }: { className?: string }) {
@@ -84,6 +87,14 @@ function BoltIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+    </svg>
+  );
+}
+
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
     </svg>
   );
 }
@@ -179,15 +190,36 @@ const features = [
   },
 ];
 
-const terminalLines = [
-  { prompt: true, text: "envoy agents create --name trading-bot" },
-  { prompt: false, text: '✓ Agent created  id: a1b2c3d4' },
-  { prompt: true, text: "envoy pair --agent a1b2c3d4" },
-  { prompt: false, text: '✓ Manifest issued  expires: 24h' },
-  { prompt: false, text: '✓ Token ready  scopes: api_access, trade' },
-];
+const agentCode = `import { EnvoyAgent } from "@envoy/agent-sdk";
+
+const agent = new EnvoyAgent({
+  envoyUrl: "https://api.useenvoy.dev",
+  autoRefresh: true,
+});
+
+// Pair with credentials from dashboard
+await agent.pair(pairingId, secret);
+
+// Present identity to any platform
+const headers = agent.toAuthHeaders();
+await fetch("https://platform.xyz/api", { headers });`;
+
+const platformCode = `import { EnvoyVerifier } from "@envoy/sdk";
+
+const verifier = new EnvoyVerifier({
+  issuerUrl: "https://api.useenvoy.dev",
+});
+
+// Verify agent identity + check scopes
+const result = await verifier.verify(token);
+if (result.valid) {
+  verifier.requireScopes(result, ["trade"]);
+  console.log("Agent:", result.manifest.agent_name);
+}`;
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<"agent" | "platform">("agent");
+
   return (
     <main className="min-h-screen">
       {/* Nav */}
@@ -210,9 +242,26 @@ export default function Home() {
               >
                 API
               </Link>
+              <a
+                href="https://github.com/bandit-network/envoy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[13px] text-muted transition-colors hover:text-foreground"
+              >
+                GitHub
+              </a>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/bandit-network/envoy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden rounded-[8px] border border-border p-[7px] text-muted transition-colors hover:bg-surface hover:text-foreground sm:block"
+              aria-label="GitHub"
+            >
+              <GitHubIcon className="h-4 w-4" />
+            </a>
             <Link
               href="/dashboard"
               className="rounded-[8px] bg-foreground px-4 py-[7px] text-[13px] font-medium text-background transition-opacity hover:opacity-90"
@@ -236,7 +285,7 @@ export default function Home() {
             Human-owned agent identities
           </h1>
           <p className="mx-auto mt-5 max-w-[540px] text-[16px] leading-[26px] text-muted">
-            Envoy is the identity and authentication layer for autonomous AI agents. 
+            Envoy is the identity and authentication layer for autonomous AI agents.
             Humans control the keys. Agents carry signed manifests. Platforms verify trust.
           </p>
 
@@ -257,30 +306,54 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Terminal Preview */}
+        {/* SDK Code Snippets */}
         <div className="mx-auto mt-16 max-w-[640px]">
           <div className="overflow-hidden rounded-[12px] border border-border bg-surface">
-            {/* Terminal header */}
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <div className="flex gap-1.5">
-                <div className="h-[11px] w-[11px] rounded-full bg-border" />
-                <div className="h-[11px] w-[11px] rounded-full bg-border" />
-                <div className="h-[11px] w-[11px] rounded-full bg-border" />
-              </div>
-              <span className="ml-2 text-[11px] font-medium text-muted">Terminal</span>
+            {/* Tab header */}
+            <div className="flex items-center gap-0 border-b border-border">
+              <button
+                onClick={() => setActiveTab("agent")}
+                className={`flex-1 px-4 py-3 text-[12px] font-medium transition-colors ${
+                  activeTab === "agent"
+                    ? "bg-surface text-foreground"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <CpuIcon className="h-3.5 w-3.5" />
+                  For Agents
+                </span>
+              </button>
+              <div className="h-8 w-px bg-border" />
+              <button
+                onClick={() => setActiveTab("platform")}
+                className={`flex-1 px-4 py-3 text-[12px] font-medium transition-colors ${
+                  activeTab === "platform"
+                    ? "bg-surface text-foreground"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <ServerIcon className="h-3.5 w-3.5" />
+                  For Platforms
+                </span>
+              </button>
             </div>
-            {/* Terminal body */}
-            <div className="p-4 font-mono text-[13px] leading-[22px]">
-              {terminalLines.map((line, i) => (
-                <div key={i} className="flex">
-                  {line.prompt && (
-                    <span className="mr-2 select-none text-muted">$</span>
-                  )}
-                  <span className={line.prompt ? "text-foreground" : "text-muted"}>
-                    {line.text}
-                  </span>
-                </div>
-              ))}
+            {/* Code body */}
+            <div className="p-4">
+              <pre className="font-mono text-[12.5px] leading-[20px] text-muted">
+                <code>
+                  {activeTab === "agent" ? agentCode : platformCode}
+                </code>
+              </pre>
+            </div>
+            {/* Package install hint */}
+            <div className="border-t border-border px-4 py-2.5">
+              <code className="text-[11px] text-muted">
+                {activeTab === "agent"
+                  ? "npm install @envoy/agent-sdk"
+                  : "npm install @envoy/sdk"}
+              </code>
             </div>
           </div>
         </div>
@@ -393,7 +466,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* Skills.sh + CTA */}
       <section className="border-t border-border bg-surface/50">
         <div className="mx-auto max-w-[1100px] px-6 py-20 text-center sm:py-24">
           <p className="text-[28px] font-bold tracking-[-0.03em] text-foreground sm:text-[32px]">
@@ -402,13 +475,23 @@ export default function Home() {
           <p className="mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-muted">
             Create your first agent identity in under a minute. Free during the beta.
           </p>
-          <Link
-            href="/dashboard"
-            className="mt-7 inline-flex items-center gap-2 rounded-[8px] bg-foreground px-6 py-[9px] text-[14px] font-medium text-background transition-opacity hover:opacity-90"
-          >
-            Open Dashboard
-            <ArrowRightIcon className="h-3.5 w-3.5" />
-          </Link>
+          <div className="mt-7 flex flex-col items-center gap-4">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-[8px] bg-foreground px-6 py-[9px] text-[14px] font-medium text-background transition-opacity hover:opacity-90"
+            >
+              Open Dashboard
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </Link>
+
+            {/* Skills.sh install */}
+            <div className="flex items-center gap-3 rounded-[8px] border border-border bg-background px-4 py-2.5">
+              <span className="text-[12px] text-muted">Available on skills.sh:</span>
+              <code className="font-mono text-[12px] text-foreground">
+                npx skills add bandit-network/envoy
+              </code>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -424,6 +507,14 @@ export default function Home() {
               <Link href="/docs/api-reference" className="text-[12px] text-muted transition-colors hover:text-foreground">
                 API
               </Link>
+              <a
+                href="https://github.com/bandit-network/envoy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted transition-colors hover:text-foreground"
+              >
+                <GitHubIcon className="h-4 w-4" />
+              </a>
               <span className="text-[12px] text-muted">
                 &copy; {new Date().getFullYear()} Envoy
               </span>

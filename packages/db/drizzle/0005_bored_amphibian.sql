@@ -1,0 +1,1 @@
+ALTER TABLE "manifests" ADD COLUMN "expiry_notified_at" timestamp with time zone;

@@ -9,6 +9,7 @@ import { AgentInfoCard } from "@/components/agents/agent-info-card";
 import { ManifestCard } from "@/components/agents/manifest-card";
 import { PairingDialog } from "@/components/agents/pairing-dialog";
 import { RevokeDialog } from "@/components/agents/revoke-dialog";
+import { EditAgentDialog } from "@/components/agents/edit-agent-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
@@ -187,6 +188,7 @@ export default function AgentDetailPage() {
 
         {isActive && (
           <div className="flex flex-wrap items-center gap-2">
+            <EditAgentDialog agent={agent} onSaved={() => loadAgent()} />
             {!manifest ? (
               <Button
                 size="sm"
