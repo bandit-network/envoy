@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const platforms = pgTable("platforms", {
@@ -9,6 +9,7 @@ export const platforms = pgTable("platforms", {
   name: text("name").notNull(),
   domain: text("domain").notNull(),
   webhookUrl: text("webhook_url"),
+  requireOnchainIdentity: boolean("require_onchain_identity").default(false).notNull(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

@@ -30,7 +30,6 @@ verifyRouter.post("/verify", async (c) => {
   const result = await verifyManifestToken(parsed.data.token);
 
   if (!result.valid) {
-    const statusCode = result.expired || result.revoked ? 401 : 401;
     return c.json(
       {
         success: false,
@@ -44,6 +43,7 @@ verifyRouter.post("/verify", async (c) => {
           expired: result.expired,
           manifest: result.manifest,
           scopes: result.scopes,
+          onchainIdentity: result.onchainIdentity,
         },
       },
       401
@@ -58,6 +58,7 @@ verifyRouter.post("/verify", async (c) => {
       revoked: false,
       expired: false,
       scopes: result.scopes,
+      onchainIdentity: result.onchainIdentity,
     },
   });
 });

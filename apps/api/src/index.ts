@@ -13,6 +13,7 @@ import { platformsRouter } from "./routes/platforms";
 import { revocationsRouter } from "./routes/revocations";
 import { webhooksRouter } from "./routes/webhooks";
 import { tokenRouter } from "./routes/token";
+import { publicAgentsRouter } from "./routes/public-agents";
 import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
 import { startExpiryScanner, stopExpiryScanner } from "./services/expiry-scanner";
 
@@ -59,6 +60,10 @@ app.use(
   "/api/v1/token/status",
   createRateLimit({ limit: RATE_LIMIT_TOKEN_STATUS, windowMs: MINUTE })
 );
+app.use(
+  "/api/v1/agents/public/*",
+  createRateLimit({ limit: RATE_LIMIT_PUBLIC, windowMs: MINUTE })
+);
 
 // Public routes
 app.route("/", health);
@@ -67,6 +72,7 @@ app.route("/api/v1", pairingRouter);
 app.route("/api/v1", verifyRouter);
 app.route("/api/v1", revocationsRouter);
 app.route("/api/v1", tokenRouter);
+app.route("/api/v1", publicAgentsRouter);
 
 // Protected routes (Privy JWT required)
 const v1 = new Hono<AuthEnv>();

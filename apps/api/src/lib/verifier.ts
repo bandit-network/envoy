@@ -1,8 +1,13 @@
 import { jwtVerify, importJWK } from "jose";
-import { db, manifests } from "@envoy/db";
+import { db, manifests, agents } from "@envoy/db";
 import { eq } from "drizzle-orm";
 import type { ManifestPayload } from "@envoy/types";
 import { getPublicJWK } from "./issuer";
+
+interface OnchainIdentity {
+  verified: boolean;
+  walletAddress: string | null;
+}
 
 interface VerificationResult {
   valid: boolean;
@@ -10,6 +15,7 @@ interface VerificationResult {
   revoked: boolean;
   expired: boolean;
   scopes: string[];
+  onchainIdentity: OnchainIdentity;
   error?: string;
 }
 
@@ -20,12 +26,15 @@ interface VerificationResult {
 export async function verifyManifestToken(
   token: string
 ): Promise<VerificationResult> {
+  const noOnchain: OnchainIdentity = { verified: false, walletAddress: null };
+
   const invalid = (error: string, extra?: Partial<VerificationResult>): VerificationResult => ({
     valid: false,
     manifest: null,
     revoked: false,
     expired: false,
     scopes: [],
+    onchainIdentity: noOnchain,
     error,
     ...extra,
   });
@@ -50,6 +59,7 @@ export async function verifyManifestToken(
       revoked: false,
       expired: true,
       scopes: payload.scopes ?? [],
+      onchainIdentity: noOnchain,
       error: "Token has expired",
     };
   }
@@ -82,9 +92,16 @@ export async function verifyManifestToken(
       revoked: true,
       expired: false,
       scopes: payload.scopes ?? [],
+      onchainIdentity: noOnchain,
       error: "Token has been revoked",
     };
   }
+
+  // Look up agent's on-chain identity (wallet address)
+  const agent = await db.query.agents.findFirst({
+    where: eq(agents.id, payload.agent_id),
+    columns: { walletAddress: true },
+  });
 
   return {
     valid: true,
@@ -92,5 +109,9 @@ export async function verifyManifestToken(
     revoked: false,
     expired: false,
     scopes: payload.scopes ?? [],
+    onchainIdentity: {
+      verified: !!agent?.walletAddress,
+      walletAddress: agent?.walletAddress ?? null,
+    },
   };
 }

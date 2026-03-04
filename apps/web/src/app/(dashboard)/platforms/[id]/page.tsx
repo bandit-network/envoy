@@ -21,7 +21,7 @@ import {
 import { ApiKeyDialog } from "@/components/platforms/api-key-dialog";
 import { WebhookSubscriptionDialog } from "@/components/platforms/webhook-subscription-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
-import { apiGet, apiDelete, ApiError } from "@/lib/api";
+import { apiGet, apiPatch, apiDelete, ApiError } from "@/lib/api";
 import { formatDate, truncateId } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ interface Platform {
   name: string;
   domain: string;
   webhookUrl: string | null;
+  requireOnchainIdentity: boolean;
   createdAt: string;
   revokedAt: string | null;
 }
@@ -141,6 +142,27 @@ export default function PlatformDetailPage() {
     }
   }
 
+  async function handleToggleOnchain() {
+    if (!platform) return;
+    try {
+      await apiPatch(
+        `/api/v1/platforms/${platformId}`,
+        { requireOnchainIdentity: !platform.requireOnchainIdentity },
+        authFetch
+      );
+      toast.success(
+        platform.requireOnchainIdentity
+          ? "On-chain identity requirement disabled"
+          : "On-chain identity requirement enabled"
+      );
+      await loadPlatform();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to update setting";
+      toast.error(message);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -239,6 +261,32 @@ export default function PlatformDetailPage() {
                       <span className="h-1.5 w-1.5 rounded-full bg-border" />
                       <span className="text-[13px] text-muted">Not configured</span>
                     </>
+                  )}
+                </dd>
+              </div>
+              <div className="py-3">
+                <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">
+                  On-Chain Identity
+                </dt>
+                <dd className="mt-0.5 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        platform.requireOnchainIdentity ? "bg-success" : "bg-border"
+                      }`}
+                    />
+                    <span className="text-[13px] text-foreground">
+                      {platform.requireOnchainIdentity ? "Required" : "Not required"}
+                    </span>
+                  </span>
+                  {!platform.revokedAt && (
+                    <button
+                      type="button"
+                      onClick={handleToggleOnchain}
+                      className="text-[12px] font-medium text-accent transition-colors hover:text-accent/80"
+                    >
+                      {platform.requireOnchainIdentity ? "Disable" : "Enable"}
+                    </button>
                   )}
                 </dd>
               </div>

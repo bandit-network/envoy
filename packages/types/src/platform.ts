@@ -4,6 +4,7 @@ export const createPlatformSchema = z.object({
   name: z.string().min(1).max(255),
   domain: z.string().min(1).max(255),
   webhookUrl: z.string().url().optional(),
+  requireOnchainIdentity: z.boolean().optional().default(false),
 });
 
 export type CreatePlatformInput = z.infer<typeof createPlatformSchema>;
@@ -12,6 +13,7 @@ export const updatePlatformSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   domain: z.string().min(1).max(255).optional(),
   webhookUrl: z.string().url().nullable().optional(),
+  requireOnchainIdentity: z.boolean().optional(),
 });
 
 export type UpdatePlatformInput = z.infer<typeof updatePlatformSchema>;

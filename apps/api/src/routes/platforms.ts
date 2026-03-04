@@ -28,7 +28,7 @@ platformsRouter.post("/", async (c) => {
   }
 
   const user = c.get("user");
-  const { name, domain, webhookUrl } = parsed.data;
+  const { name, domain, webhookUrl, requireOnchainIdentity } = parsed.data;
 
   const [platform] = await db
     .insert(platforms)
@@ -37,6 +37,7 @@ platformsRouter.post("/", async (c) => {
       name,
       domain,
       webhookUrl: webhookUrl ?? null,
+      requireOnchainIdentity: requireOnchainIdentity ?? false,
     })
     .returning();
 
@@ -156,6 +157,7 @@ platformsRouter.patch("/:id", async (c) => {
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.domain !== undefined) updateData.domain = parsed.data.domain;
   if (parsed.data.webhookUrl !== undefined) updateData.webhookUrl = parsed.data.webhookUrl;
+  if (parsed.data.requireOnchainIdentity !== undefined) updateData.requireOnchainIdentity = parsed.data.requireOnchainIdentity;
 
   const [updated] = await db
     .update(platforms)

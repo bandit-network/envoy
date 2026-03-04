@@ -1,0 +1,1 @@
+ALTER TABLE "platforms" ADD COLUMN "require_onchain_identity" boolean DEFAULT false NOT NULL;
