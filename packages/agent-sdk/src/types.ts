@@ -20,10 +20,29 @@ export interface EnvoyAgentOptions {
   fetch?: typeof globalThis.fetch;
 
   /**
-   * Callback invoked after a successful `pair()` call.
+   * Callback invoked after a successful `pair()` or `refresh()` call.
    * Use this to persist the token data to disk, database, or env.
    */
   onTokenReceived?: (data: TokenData) => void | Promise<void>;
+
+  /**
+   * Enable automatic token refresh before expiry.
+   * When true, the SDK schedules a refresh `refreshBeforeExpiry` seconds
+   * before the token expires. Default: false.
+   */
+  autoRefresh?: boolean;
+
+  /**
+   * Seconds before token expiry to trigger auto-refresh.
+   * Default: 300 (5 minutes).
+   */
+  refreshBeforeExpiry?: number;
+
+  /**
+   * Called when auto-refresh fails. Use this for logging or alerting.
+   * If not set, errors are silently swallowed.
+   */
+  onRefreshError?: (error: Error) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,3 +119,36 @@ export const tokenDataSchema = z.object({
   signature: z.string().min(1),
   expiresAt: z.string().min(1),
 });
+
+// ---------------------------------------------------------------------------
+// Agent status (returned by GET /token/status)
+// ---------------------------------------------------------------------------
+
+export interface AgentStatus {
+  agentId: string;
+  agentName: string;
+  status: "active" | "suspended" | "revoked" | "unknown";
+  tokenExpired: boolean;
+  tokenRevoked: boolean;
+  tokenExpiresAt: string;
+  scopes: string[];
+}
+
+export const agentStatusResponseSchema = z.object({
+  success: z.literal(true),
+  data: z.object({
+    agentId: z.string(),
+    agentName: z.string(),
+    status: z.string(),
+    tokenExpired: z.boolean(),
+    tokenRevoked: z.boolean(),
+    tokenExpiresAt: z.string(),
+    scopes: z.array(z.string()),
+  }),
+});
+
+// ---------------------------------------------------------------------------
+// Refresh response (same shape as pair-confirm)
+// ---------------------------------------------------------------------------
+
+export const refreshResponseSchema = pairConfirmResponseSchema;

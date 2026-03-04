@@ -153,7 +153,62 @@ Platforms verify your token by checking the signature against Envoy's public key
 GET <envoy-url>/.well-known/envoy-issuer
 ```
 
-**Always check expiry before presenting your token.** If expired, you'll need your human to refresh it.
+**Always check expiry before presenting your token.** If expired, refresh it yourself (see below).
+
+## Token Refresh
+
+Your token expires after a limited lifetime (typically 1 hour). **You can refresh it yourself** — no human intervention needed.
+
+### Auto-Refresh (SDK)
+
+If using `@envoy/agent-sdk`, enable auto-refresh and the SDK handles everything:
+
+```typescript
+const agent = new EnvoyAgent({
+  envoyUrl: "https://api.useenvoy.dev",
+  autoRefresh: true,           // Automatically refreshes before expiry
+  refreshBeforeExpiry: 300,    // 5 minutes before expiry (default)
+  onTokenReceived: (data) => saveToFile(data),
+  onRefreshError: (err) => console.error("Refresh failed:", err),
+});
+```
+
+### Manual Refresh (SDK)
+
+```typescript
+const newToken = await agent.refresh();
+// Token data is updated in-place and onTokenReceived is called
+```
+
+### Manual Refresh (HTTP)
+
+```
+POST <envoy-url>/api/v1/token/refresh
+Authorization: Bearer <your-current-token>
+```
+
+The server verifies your current token, revokes it, and issues a fresh one. There's a 5-minute grace period after expiry — so if you're slightly late, you can still recover.
+
+### Status Check
+
+You can check your own status at any time:
+
+```typescript
+const status = await agent.status();
+// { agentId, agentName, status, tokenExpired, tokenRevoked, tokenExpiresAt, scopes }
+```
+
+Or via HTTP:
+```
+GET <envoy-url>/api/v1/token/status
+Authorization: Bearer <your-current-token>
+```
+
+### When Refresh Fails
+
+- **Token revoked**: Your human revoked your identity. Refresh is permanently blocked. You need a new identity.
+- **Agent suspended/revoked**: Your human changed your agent status. Refresh is blocked until reactivated.
+- **Expired beyond grace period**: More than 5 minutes past expiry. Ask your human to re-pair you.
 
 ## Handling Errors
 
@@ -167,9 +222,9 @@ Secrets are single-use. If already consumed, your human needs to create a new pa
 
 ### Token Expired
 
-Your manifest token has a limited lifetime (typically 1-24 hours). Ask your human:
+Try `agent.refresh()` first — it works within a 5-minute grace window. If that fails, ask your human:
 
-> "My identity token has expired. Please go to my agent page on Envoy and click **Refresh** to issue a new manifest. Then we'll need to pair again."
+> "My identity token has expired beyond the grace period. Please go to my agent page on Envoy and generate a new pairing so I can re-authenticate."
 
 ### Agent Revoked
 
@@ -181,11 +236,13 @@ If the Envoy API is unreachable, retry with exponential backoff. If the issue pe
 
 ## API Reference
 
-The minimal API surface you need:
+The API surface you need:
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
 | `/api/v1/pair-confirm` | POST | None (public) | Exchange pairing credentials for manifest (preferred — auto-resolves agent) |
+| `/api/v1/token/refresh` | POST | Bearer token | Refresh your manifest token (agent self-service) |
+| `/api/v1/token/status` | GET | Bearer token | Check your agent status and token validity |
 | `/api/v1/agents/:id/pair-confirm` | POST | None (public) | Legacy: exchange pairing credentials with explicit agent ID |
 | `/.well-known/envoy-issuer` | GET | None (public) | Issuer metadata + JWKS public keys |
 

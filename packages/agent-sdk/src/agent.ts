@@ -1,18 +1,21 @@
-import type { EnvoyAgentOptions, ManifestPayload, TokenData } from "./types";
+import type { EnvoyAgentOptions, ManifestPayload, TokenData, AgentStatus } from "./types";
 import {
   pairConfirmResponseSchema,
   apiErrorResponseSchema,
   tokenDataSchema,
+  refreshResponseSchema,
+  agentStatusResponseSchema,
 } from "./types";
 import {
   EnvoyError,
   EnvoyPairingError,
   EnvoyTokenExpiredError,
   EnvoyNotPairedError,
+  EnvoyRefreshError,
 } from "./errors";
 
 /**
- * EnvoyAgent -- Agent Runtime SDK for acquiring and presenting Envoy identity tokens.
+ * EnvoyAgent -- Agent Runtime SDK for acquiring, refreshing, and presenting Envoy identity tokens.
  *
  * Usage (recommended — no agent ID needed):
  * ```ts
@@ -20,13 +23,14 @@ import {
  *
  * const agent = new EnvoyAgent({
  *   envoyUrl: "https://api.useenvoy.dev",
+ *   autoRefresh: true,
  *   onTokenReceived: (data) => saveToFile(data),
  * });
  *
  * // Complete pairing — agent ID is resolved automatically
  * await agent.pair(pairingId, secret);
  *
- * // Present identity to platforms
+ * // Present identity to platforms (auto-refreshes before expiry)
  * const headers = agent.toAuthHeaders();
  * await fetch("https://platform.xyz/api", { headers });
  * ```
@@ -36,14 +40,21 @@ export class EnvoyAgent {
   private agentId: string | null;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly onTokenReceived?: (data: TokenData) => void | Promise<void>;
+  private readonly autoRefresh: boolean;
+  private readonly refreshBeforeExpiry: number;
+  private readonly onRefreshError?: (error: Error) => void;
 
   private tokenData: TokenData | null = null;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: EnvoyAgentOptions) {
     this.envoyUrl = options.envoyUrl.replace(/\/$/, "");
     this.agentId = options.agentId ?? null;
     this.fetchFn = options.fetch ?? globalThis.fetch;
     this.onTokenReceived = options.onTokenReceived;
+    this.autoRefresh = options.autoRefresh ?? false;
+    this.refreshBeforeExpiry = options.refreshBeforeExpiry ?? 300; // 5 minutes
+    this.onRefreshError = options.onRefreshError;
   }
 
   /**
@@ -106,32 +117,7 @@ export class EnvoyAgent {
       );
     }
 
-    // Parse success response
-    let body: unknown;
-    try {
-      body = await response.json();
-    } catch {
-      throw new EnvoyError("API returned 200 with non-JSON body");
-    }
-
-    const parsed = pairConfirmResponseSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new EnvoyError(
-        `Malformed pair-confirm response: ${parsed.error.message}`
-      );
-    }
-
-    const { data: responseData } = parsed.data;
-
-    const tokenData: TokenData = {
-      manifestId: responseData.manifestId,
-      manifestJson: responseData.manifestJson as unknown as ManifestPayload,
-      signature: responseData.signature,
-      expiresAt:
-        typeof responseData.expiresAt === "string"
-          ? responseData.expiresAt
-          : new Date(responseData.expiresAt).toISOString(),
-    };
+    const tokenData = await this.parseTokenResponse(response, "pair-confirm");
 
     this.tokenData = tokenData;
 
@@ -145,7 +131,165 @@ export class EnvoyAgent {
       await this.onTokenReceived(tokenData);
     }
 
+    // Schedule auto-refresh if enabled
+    this.scheduleAutoRefresh();
+
     return tokenData;
+  }
+
+  /**
+   * Refresh the current token using the Envoy token refresh endpoint.
+   * The agent presents its current signed manifest token as a Bearer token.
+   * On success, the old manifest is revoked and a new one is issued.
+   *
+   * @returns The new token data
+   * @throws {EnvoyNotPairedError} If not paired
+   * @throws {EnvoyRefreshError} If the API returns an error (revoked, expired beyond grace, etc.)
+   * @throws {EnvoyError} If the network request fails or response is malformed
+   */
+  async refresh(): Promise<TokenData> {
+    if (!this.tokenData) {
+      throw new EnvoyNotPairedError();
+    }
+
+    const url = `${this.envoyUrl}/api/v1/token/refresh`;
+
+    let response: Response;
+    try {
+      response = await this.fetchFn(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.tokenData.signature}` },
+      });
+    } catch (err) {
+      throw new EnvoyError(
+        `Network request failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
+    // Handle error responses
+    if (!response.ok) {
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        throw new EnvoyError(
+          `API returned ${response.status} with non-JSON body`
+        );
+      }
+
+      const errorParsed = apiErrorResponseSchema.safeParse(body);
+      if (errorParsed.success) {
+        throw new EnvoyRefreshError(
+          errorParsed.data.error.message,
+          errorParsed.data.error.code
+        );
+      }
+
+      throw new EnvoyError(
+        `API returned ${response.status}: ${JSON.stringify(body)}`
+      );
+    }
+
+    const tokenData = await this.parseTokenResponse(response, "token/refresh");
+
+    this.tokenData = tokenData;
+
+    // Resolve agent ID from the manifest if not already set
+    if (!this.agentId && tokenData.manifestJson.agent_id) {
+      this.agentId = tokenData.manifestJson.agent_id;
+    }
+
+    // Invoke persistence callback
+    if (this.onTokenReceived) {
+      await this.onTokenReceived(tokenData);
+    }
+
+    // Reschedule auto-refresh for the new token
+    this.scheduleAutoRefresh();
+
+    return tokenData;
+  }
+
+  /**
+   * Check the agent's current status from the Envoy API.
+   * Works even with expired or revoked tokens — returns informational status.
+   *
+   * @returns The agent's current status
+   * @throws {EnvoyNotPairedError} If not paired
+   * @throws {EnvoyError} If the network request fails or response is malformed
+   */
+  async status(): Promise<AgentStatus> {
+    if (!this.tokenData) {
+      throw new EnvoyNotPairedError();
+    }
+
+    const url = `${this.envoyUrl}/api/v1/token/status`;
+
+    let response: Response;
+    try {
+      response = await this.fetchFn(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${this.tokenData.signature}` },
+      });
+    } catch (err) {
+      throw new EnvoyError(
+        `Network request failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+
+    if (!response.ok) {
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        throw new EnvoyError(
+          `API returned ${response.status} with non-JSON body`
+        );
+      }
+
+      const errorParsed = apiErrorResponseSchema.safeParse(body);
+      if (errorParsed.success) {
+        throw new EnvoyError(errorParsed.data.error.message);
+      }
+
+      throw new EnvoyError(
+        `API returned ${response.status}: ${JSON.stringify(body)}`
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new EnvoyError("API returned 200 with non-JSON body");
+    }
+
+    const parsed = agentStatusResponseSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new EnvoyError(
+        `Malformed status response: ${parsed.error.message}`
+      );
+    }
+
+    return parsed.data.data as AgentStatus;
+  }
+
+  /**
+   * Start auto-refresh timer. Called automatically after pair()/loadToken()
+   * if `autoRefresh` is enabled. Can also be called manually.
+   */
+  startAutoRefresh(): void {
+    this.scheduleAutoRefresh();
+  }
+
+  /**
+   * Stop auto-refresh timer. Call this during shutdown for clean cleanup.
+   */
+  stopAutoRefresh(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
   /**
@@ -156,6 +300,7 @@ export class EnvoyAgent {
    * Expiry is enforced when calling getToken() or toAuthHeaders().
    *
    * Also resolves the agent ID from the manifest if not set.
+   * If `autoRefresh` is enabled, schedules a refresh timer.
    *
    * @throws {EnvoyError} If the data shape is invalid
    */
@@ -178,6 +323,9 @@ export class EnvoyAgent {
     if (!this.agentId && this.tokenData.manifestJson.agent_id) {
       this.agentId = this.tokenData.manifestJson.agent_id;
     }
+
+    // Schedule auto-refresh if enabled
+    this.scheduleAutoRefresh();
   }
 
   /**
@@ -274,5 +422,92 @@ export class EnvoyAgent {
     }
 
     return this.tokenData;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Parse a token response (pair-confirm or refresh) into TokenData.
+   */
+  private async parseTokenResponse(response: Response, context: string): Promise<TokenData> {
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new EnvoyError(`API returned 200 with non-JSON body (${context})`);
+    }
+
+    const parsed = refreshResponseSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new EnvoyError(
+        `Malformed ${context} response: ${parsed.error.message}`
+      );
+    }
+
+    const { data: responseData } = parsed.data;
+
+    return {
+      manifestId: responseData.manifestId,
+      manifestJson: responseData.manifestJson as unknown as ManifestPayload,
+      signature: responseData.signature,
+      expiresAt:
+        typeof responseData.expiresAt === "string"
+          ? responseData.expiresAt
+          : new Date(responseData.expiresAt).toISOString(),
+    };
+  }
+
+  /**
+   * Schedule an auto-refresh timer if enabled and we have a valid token.
+   */
+  private scheduleAutoRefresh(): void {
+    // Clear any existing timer
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    if (!this.autoRefresh || !this.tokenData) {
+      return;
+    }
+
+    const expiresAt = new Date(this.tokenData.expiresAt).getTime();
+    const refreshAt = expiresAt - this.refreshBeforeExpiry * 1000;
+    const delay = refreshAt - Date.now();
+
+    if (delay <= 0) {
+      // Token is already past the refresh window — try immediately
+      // (the server has a 5-minute grace period)
+      this.executeAutoRefresh();
+      return;
+    }
+
+    this.refreshTimer = setTimeout(() => {
+      this.executeAutoRefresh();
+    }, delay);
+  }
+
+  /**
+   * Execute an auto-refresh. On failure, retry once after 30 seconds.
+   */
+  private async executeAutoRefresh(): Promise<void> {
+    try {
+      await this.refresh();
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      this.onRefreshError?.(error);
+
+      // Retry once after 30 seconds
+      this.refreshTimer = setTimeout(async () => {
+        try {
+          await this.refresh();
+        } catch (retryErr) {
+          const retryError = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+          this.onRefreshError?.(retryError);
+        }
+      }, 30_000);
+    }
   }
 }

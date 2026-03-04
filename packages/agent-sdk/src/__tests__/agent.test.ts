@@ -1,10 +1,11 @@
-import { describe, it, expect, afterEach } from "bun:test";
+import { describe, it, expect, afterEach, beforeEach } from "bun:test";
 import { EnvoyAgent } from "../agent";
 import {
   EnvoyError,
   EnvoyPairingError,
   EnvoyTokenExpiredError,
   EnvoyNotPairedError,
+  EnvoyRefreshError,
 } from "../errors";
 import type { ManifestPayload, TokenData } from "../types";
 
@@ -652,5 +653,322 @@ describe("error hierarchy", () => {
     const err = new EnvoyNotPairedError();
     expect(err).toBeInstanceOf(EnvoyError);
     expect(err).toBeInstanceOf(Error);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refresh()
+// ---------------------------------------------------------------------------
+describe("refresh", () => {
+  const REFRESHED_MANIFEST: ManifestPayload = {
+    ...TEST_MANIFEST,
+    issued_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 7200000).toISOString(), // 2 hours from now
+  };
+
+  function makeRefreshResponse(
+    manifest: ManifestPayload = REFRESHED_MANIFEST
+  ): Response {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          manifestId: "new-manifest-id",
+          manifestJson: manifest,
+          signature: "new-signature",
+          expiresAt: manifest.expires_at,
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  it("refreshes token and returns new data", async () => {
+    let callCount = 0;
+    const mockFetch = async () => {
+      callCount++;
+      // First call is pair, second is refresh
+      if (callCount === 1) return makeSuccessResponse();
+      return makeRefreshResponse();
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    const result = await agent.refresh();
+
+    expect(result.manifestId).toBe("new-manifest-id");
+    expect(result.signature).toBe("new-signature");
+    expect(result.expiresAt).toBe(REFRESHED_MANIFEST.expires_at);
+    expect(agent.getToken()).toBe("new-signature");
+  });
+
+  it("invokes onTokenReceived callback on refresh", async () => {
+    const receivedTokens: TokenData[] = [];
+    let callCount = 0;
+    const mockFetch = async () => {
+      callCount++;
+      if (callCount === 1) return makeSuccessResponse();
+      return makeRefreshResponse();
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+      onTokenReceived: (data) => {
+        receivedTokens.push(data);
+      },
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+    await agent.refresh();
+
+    // Should have been called twice: once for pair, once for refresh
+    expect(receivedTokens).toHaveLength(2);
+    expect(receivedTokens[1]!.manifestId).toBe("new-manifest-id");
+    expect(receivedTokens[1]!.signature).toBe("new-signature");
+  });
+
+  it("throws EnvoyNotPairedError when not paired", async () => {
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+    });
+
+    try {
+      await agent.refresh();
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyNotPairedError);
+    }
+  });
+
+  it("throws EnvoyRefreshError on API error", async () => {
+    let callCount = 0;
+    const mockFetch = async () => {
+      callCount++;
+      if (callCount === 1) return makeSuccessResponse();
+      return makeErrorResponse(401, "TOKEN_REVOKED", "Token has been revoked");
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    try {
+      await agent.refresh();
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyRefreshError);
+      expect((err as EnvoyRefreshError).code).toBe("TOKEN_REVOKED");
+      expect((err as EnvoyRefreshError).message).toBe(
+        "Token has been revoked"
+      );
+    }
+  });
+
+  it("handles network failure", async () => {
+    let callCount = 0;
+    const mockFetch = async () => {
+      callCount++;
+      if (callCount === 1) return makeSuccessResponse();
+      throw new Error("Connection refused");
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    try {
+      await agent.refresh();
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyError);
+      expect((err as EnvoyError).message).toContain("Network request failed");
+      expect((err as EnvoyError).message).toContain("Connection refused");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// status()
+// ---------------------------------------------------------------------------
+describe("status", () => {
+  function makeStatusResponse(): Response {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          agentId: TEST_AGENT_ID,
+          agentName: "Test Agent",
+          status: "active",
+          tokenExpired: false,
+          tokenRevoked: false,
+          tokenExpiresAt: "2026-03-04T17:00:00.000Z",
+          scopes: ["api_access"],
+        },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  it("returns agent status", async () => {
+    let callCount = 0;
+    const mockFetch = async () => {
+      callCount++;
+      if (callCount === 1) return makeSuccessResponse();
+      return makeStatusResponse();
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    const result = await agent.status();
+
+    expect(result.agentId).toBe(TEST_AGENT_ID);
+    expect(result.agentName).toBe("Test Agent");
+    expect(result.status).toBe("active");
+    expect(result.tokenExpired).toBe(false);
+    expect(result.tokenRevoked).toBe(false);
+    expect(result.tokenExpiresAt).toBe("2026-03-04T17:00:00.000Z");
+    expect(result.scopes).toEqual(["api_access"]);
+  });
+
+  it("throws EnvoyNotPairedError when not paired", async () => {
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+    });
+
+    try {
+      await agent.status();
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyNotPairedError);
+    }
+  });
+
+  it("handles API error", async () => {
+    let callCount = 0;
+    const mockFetch = async () => {
+      callCount++;
+      if (callCount === 1) return makeSuccessResponse();
+      return makeErrorResponse(500, "INTERNAL_ERROR", "Something went wrong");
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    try {
+      await agent.status();
+      expect(true).toBe(false); // Should not reach here
+    } catch (err) {
+      expect(err).toBeInstanceOf(EnvoyError);
+      expect((err as EnvoyError).message).toBe("Something went wrong");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// auto-refresh
+// ---------------------------------------------------------------------------
+describe("auto-refresh", () => {
+  let originalSetTimeout: typeof globalThis.setTimeout;
+  let originalClearTimeout: typeof globalThis.clearTimeout;
+  let capturedTimeouts: Array<{ callback: Function; delay: number; id: number }>;
+  let nextTimerId: number;
+
+  beforeEach(() => {
+    originalSetTimeout = globalThis.setTimeout;
+    originalClearTimeout = globalThis.clearTimeout;
+    capturedTimeouts = [];
+    nextTimerId = 1000;
+
+    // @ts-expect-error -- fake timer override
+    globalThis.setTimeout = (callback: Function, delay: number) => {
+      const id = nextTimerId++;
+      capturedTimeouts.push({ callback, delay, id });
+      return id;
+    };
+
+    globalThis.clearTimeout = (id: unknown) => {
+      capturedTimeouts = capturedTimeouts.filter((t) => t.id !== id);
+    };
+  });
+
+  afterEach(() => {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  });
+
+  it("schedules timer after pair when autoRefresh is true", async () => {
+    const mockFetch = async () => makeSuccessResponse();
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+      autoRefresh: true,
+      refreshBeforeExpiry: 300,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    // A setTimeout should have been scheduled
+    expect(capturedTimeouts.length).toBeGreaterThanOrEqual(1);
+
+    // The delay should be roughly (token expiry - refreshBeforeExpiry - now)
+    // Token expires in 1 hour (3600s), refresh 300s before = ~3300s delay
+    const lastTimeout = capturedTimeouts[capturedTimeouts.length - 1]!;
+    expect(lastTimeout.delay).toBeGreaterThan(0);
+    expect(lastTimeout.delay).toBeLessThanOrEqual(3600000); // at most 1 hour
+  });
+
+  it("stopAutoRefresh clears timer", async () => {
+    const mockFetch = async () => makeSuccessResponse();
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      agentId: TEST_AGENT_ID,
+      fetch: mockFetch as typeof globalThis.fetch,
+      autoRefresh: true,
+      refreshBeforeExpiry: 300,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    // Timer should be scheduled
+    const timerCountBefore = capturedTimeouts.length;
+    expect(timerCountBefore).toBeGreaterThanOrEqual(1);
+
+    // Stop auto-refresh
+    agent.stopAutoRefresh();
+
+    // The timer should have been cleared
+    expect(capturedTimeouts.length).toBe(timerCountBefore - 1);
   });
 });

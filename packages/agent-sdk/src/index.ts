@@ -4,6 +4,7 @@ export type {
   EnvoyAgentOptions,
   ManifestPayload,
   TokenData,
+  AgentStatus,
   PairConfirmResponse,
   ApiErrorResponse,
 } from "./types";
@@ -13,4 +14,5 @@ export {
   EnvoyPairingError,
   EnvoyTokenExpiredError,
   EnvoyNotPairedError,
+  EnvoyRefreshError,
 } from "./errors";

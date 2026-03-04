@@ -12,6 +12,7 @@ import { auditRouter } from "./routes/audit";
 import { platformsRouter } from "./routes/platforms";
 import { revocationsRouter } from "./routes/revocations";
 import { webhooksRouter } from "./routes/webhooks";
+import { tokenRouter } from "./routes/token";
 import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
 
 const app = new Hono();
@@ -31,6 +32,8 @@ const RATE_LIMIT_PUBLIC = Number(process.env.RATE_LIMIT_PUBLIC) || 60;
 const RATE_LIMIT_VERIFY = Number(process.env.RATE_LIMIT_VERIFY) || 300;
 const RATE_LIMIT_AUTHENTICATED = Number(process.env.RATE_LIMIT_AUTHENTICATED) || 120;
 const RATE_LIMIT_PAIR = Number(process.env.RATE_LIMIT_PAIR) || 10;
+const RATE_LIMIT_TOKEN_REFRESH = Number(process.env.RATE_LIMIT_TOKEN_REFRESH) || 10;
+const RATE_LIMIT_TOKEN_STATUS = Number(process.env.RATE_LIMIT_TOKEN_STATUS) || 60;
 
 const MINUTE = 60_000;
 
@@ -47,6 +50,14 @@ app.use(
   "/api/v1/revocations/*",
   createRateLimit({ limit: RATE_LIMIT_PUBLIC, windowMs: MINUTE })
 );
+app.use(
+  "/api/v1/token/refresh",
+  createRateLimit({ limit: RATE_LIMIT_TOKEN_REFRESH, windowMs: MINUTE })
+);
+app.use(
+  "/api/v1/token/status",
+  createRateLimit({ limit: RATE_LIMIT_TOKEN_STATUS, windowMs: MINUTE })
+);
 
 // Public routes
 app.route("/", health);
@@ -54,6 +65,7 @@ app.route("/", wellKnown);
 app.route("/api/v1", pairingRouter);
 app.route("/api/v1", verifyRouter);
 app.route("/api/v1", revocationsRouter);
+app.route("/api/v1", tokenRouter);
 
 // Protected routes (Privy JWT required)
 const v1 = new Hono<AuthEnv>();

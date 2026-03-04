@@ -46,3 +46,17 @@ export class EnvoyNotPairedError extends EnvoyError {
     this.name = "EnvoyNotPairedError";
   }
 }
+
+/**
+ * Thrown when the token refresh API returns an error response.
+ * The `.code` property contains the API error code (e.g. "TOKEN_REVOKED", "AGENT_INACTIVE").
+ */
+export class EnvoyRefreshError extends EnvoyError {
+  public readonly code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "EnvoyRefreshError";
+    this.code = code;
+  }
+}
