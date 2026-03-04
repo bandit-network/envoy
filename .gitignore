@@ -72,3 +72,4 @@ bun-debug.log*
 .netlify
 *.tgz
 .cache
+.excalidraw

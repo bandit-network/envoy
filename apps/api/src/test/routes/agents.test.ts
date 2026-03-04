@@ -67,6 +67,53 @@ describe("POST / - Create agent", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("auto-generates pairing credentials on creation", async () => {
+    const res = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Auto-Pair Agent" }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.data.pairing).toBeDefined();
+    expect(json.data.pairing.pairingId).toBeDefined();
+    expect(json.data.pairing.pairingSecret).toBeDefined();
+    expect(json.data.pairing.pairingSecret).toHaveLength(64); // 32-byte hex
+    expect(json.data.pairing.expiresAt).toBeDefined();
+  });
+
+  it("auto-generated pairing can be used to pair-confirm", async () => {
+    // Create agent — should get pairing credentials back
+    const createRes = await app.request("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Pair Flow Agent" }),
+    });
+    const createJson = await createRes.json();
+    const { pairingId, pairingSecret } = createJson.data.pairing;
+
+    // Use the auto-generated pairing to confirm (via the pairing router)
+    // We need to import the pairing router for this test
+    const { Hono } = await import("hono");
+    const { pairingRouter } = await import("../../routes/pairing");
+    const pairApp = new Hono();
+    pairApp.route("/", pairingRouter);
+
+    const confirmRes = await pairApp.request("/pair-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pairingId, pairingSecret }),
+    });
+
+    expect(confirmRes.status).toBe(200);
+    const confirmJson = await confirmRes.json();
+    expect(confirmJson.success).toBe(true);
+    expect(confirmJson.data.manifestId).toBeDefined();
+    expect(confirmJson.data.signature).toBeDefined();
+    expect(confirmJson.data.manifestJson.agent_name).toBe("Pair Flow Agent");
+  });
 });
 
 // -------------------------------------------------------------------

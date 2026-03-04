@@ -70,6 +70,17 @@ agentsRouter.post("/", async (c) => {
     ? { ...agent, walletAddress }
     : agent;
 
+  // Auto-generate pairing credentials so the human can immediately
+  // hand them to the agent runtime — no extra step required.
+  let pairing: { pairingId: string; pairingSecret: string; expiresAt: Date } | null = null;
+  try {
+    pairing = await createPairing(agent.id, user.userId);
+  } catch {
+    // Pairing generation is best-effort — never blocks agent creation.
+    // The human can always generate a new one from the agent detail page.
+    console.warn("[agents] Failed to auto-generate pairing on creation");
+  }
+
   logAudit({
     action: "agent_created",
     userId: user.userId,
@@ -77,7 +88,13 @@ agentsRouter.post("/", async (c) => {
     metadata: { name, walletAddress },
   });
 
-  return c.json({ success: true, data: agentData }, 201);
+  return c.json({
+    success: true,
+    data: {
+      ...agentData,
+      pairing: pairing ?? undefined,
+    },
+  }, 201);
 });
 
 /**

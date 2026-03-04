@@ -14,17 +14,16 @@ import {
 /**
  * EnvoyAgent -- Agent Runtime SDK for acquiring and presenting Envoy identity tokens.
  *
- * Usage:
+ * Usage (recommended — no agent ID needed):
  * ```ts
  * import { EnvoyAgent } from "@envoy/agent-sdk";
  *
  * const agent = new EnvoyAgent({
  *   envoyUrl: "https://api.useenvoy.dev",
- *   agentId: "your-agent-uuid",
  *   onTokenReceived: (data) => saveToFile(data),
  * });
  *
- * // Complete pairing (one-time)
+ * // Complete pairing — agent ID is resolved automatically
  * await agent.pair(pairingId, secret);
  *
  * // Present identity to platforms
@@ -34,7 +33,7 @@ import {
  */
 export class EnvoyAgent {
   private readonly envoyUrl: string;
-  private readonly agentId: string;
+  private agentId: string | null;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly onTokenReceived?: (data: TokenData) => void | Promise<void>;
 
@@ -42,7 +41,7 @@ export class EnvoyAgent {
 
   constructor(options: EnvoyAgentOptions) {
     this.envoyUrl = options.envoyUrl.replace(/\/$/, "");
-    this.agentId = options.agentId;
+    this.agentId = options.agentId ?? null;
     this.fetchFn = options.fetch ?? globalThis.fetch;
     this.onTokenReceived = options.onTokenReceived;
   }
@@ -52,6 +51,11 @@ export class EnvoyAgent {
    * This is the primary onboarding method — call once after the human
    * operator generates pairing credentials from the Envoy dashboard.
    *
+   * If agentId was provided in the constructor, uses the legacy
+   * `/agents/:id/pair-confirm` endpoint. Otherwise, uses the direct
+   * `/pair-confirm` endpoint which resolves the agent automatically
+   * from the pairing record.
+   *
    * @param pairingId - UUID of the pairing record
    * @param secret - One-time pairing secret (hex string)
    * @returns The token data containing manifest + signature
@@ -59,7 +63,11 @@ export class EnvoyAgent {
    * @throws {EnvoyError} If the network request fails or response is malformed
    */
   async pair(pairingId: string, secret: string): Promise<TokenData> {
-    const url = `${this.envoyUrl}/api/v1/agents/${this.agentId}/pair-confirm`;
+    // Use direct endpoint when no agent ID is known (preferred)
+    // Fall back to legacy endpoint when agent ID is provided
+    const url = this.agentId
+      ? `${this.envoyUrl}/api/v1/agents/${this.agentId}/pair-confirm`
+      : `${this.envoyUrl}/api/v1/pair-confirm`;
 
     let response: Response;
     try {
@@ -127,6 +135,11 @@ export class EnvoyAgent {
 
     this.tokenData = tokenData;
 
+    // Resolve agent ID from the manifest if not already set
+    if (!this.agentId && tokenData.manifestJson.agent_id) {
+      this.agentId = tokenData.manifestJson.agent_id;
+    }
+
     // Invoke persistence callback
     if (this.onTokenReceived) {
       await this.onTokenReceived(tokenData);
@@ -141,6 +154,8 @@ export class EnvoyAgent {
    *
    * Accepts expired tokens — the agent can still inspect its identity.
    * Expiry is enforced when calling getToken() or toAuthHeaders().
+   *
+   * Also resolves the agent ID from the manifest if not set.
    *
    * @throws {EnvoyError} If the data shape is invalid
    */
@@ -158,6 +173,11 @@ export class EnvoyAgent {
       signature: parsed.data.signature,
       expiresAt: parsed.data.expiresAt,
     };
+
+    // Resolve agent ID from persisted manifest if not set
+    if (!this.agentId && this.tokenData.manifestJson.agent_id) {
+      this.agentId = this.tokenData.manifestJson.agent_id;
+    }
   }
 
   /**
@@ -225,9 +245,11 @@ export class EnvoyAgent {
   }
 
   /**
-   * Get the agent ID passed to the constructor.
+   * Get the agent ID. Returns the ID from the constructor if provided,
+   * or the ID resolved from the manifest after pairing/loadToken.
+   * Returns null if neither is available (not paired and no ID set).
    */
-  getAgentId(): string {
+  getAgentId(): string | null {
     return this.agentId;
   }
 

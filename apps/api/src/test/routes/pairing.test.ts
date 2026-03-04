@@ -163,3 +163,73 @@ describe("POST /agents/:id/pair-confirm - Confirm pairing", () => {
     expect(res.status).toBe(400);
   });
 });
+
+// -------------------------------------------------------------------
+// POST /pair-confirm -- Direct pair-confirm (no agent ID needed)
+// -------------------------------------------------------------------
+describe("POST /pair-confirm - Direct pair-confirm", () => {
+  it("confirms pairing without agent ID in URL", async () => {
+    const { pairingId, pairingSecret } = await setupPairing();
+
+    const res = await pairApp.request("/pair-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pairingId, pairingSecret }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.data.manifestId).toBeDefined();
+    expect(json.data.signature).toBeDefined();
+    expect(json.data.manifestJson.agent_id).toBeDefined();
+    expect(json.data.manifestJson.agent_name).toBe("Pairing Agent");
+  });
+
+  it("rejects already-used pairing", async () => {
+    const { pairingId, pairingSecret } = await setupPairing();
+
+    // First confirm succeeds
+    await pairApp.request("/pair-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pairingId, pairingSecret }),
+    });
+
+    // Second confirm fails
+    const res = await pairApp.request("/pair-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pairingId, pairingSecret }),
+    });
+
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json.success).toBe(false);
+  });
+
+  it("rejects invalid secret", async () => {
+    const { pairingId } = await setupPairing();
+
+    const res = await pairApp.request("/pair-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pairingId, pairingSecret: "wrong-secret" }),
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects non-existent pairing ID", async () => {
+    const res = await pairApp.request("/pair-confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pairingId: "00000000-0000-0000-0000-000000000099",
+        pairingSecret: "any",
+      }),
+    });
+
+    expect(res.status).toBe(401);
+  });
+});

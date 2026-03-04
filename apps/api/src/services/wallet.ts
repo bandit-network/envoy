@@ -5,7 +5,7 @@ import { privyClient } from "../lib/privy";
 const WALLET_ENABLED = process.env.WALLET_PROVISIONING_ENABLED === "true";
 
 /**
- * Provision an Ethereum wallet for an agent using Privy's wallet API.
+ * Provision a Solana wallet for an agent using Privy's wallet API.
  *
  * - If WALLET_PROVISIONING_ENABLED is false, returns null silently.
  * - If wallet provisioning fails, logs the error and returns null.
@@ -22,19 +22,28 @@ export async function provisionWallet(
   }
 
   try {
-    // Use Privy's server-side wallet API to create an Ethereum wallet
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Privy SDK types may vary between versions
-    const walletApi = (privyClient as any).walletApi;
+    // Use Privy's server-side wallet API to create a Solana wallet
+    const { walletApi } = privyClient;
 
-    if (!walletApi?.create) {
+    if (!walletApi) {
       console.warn(
-        "[wallet] Privy walletApi.create not available — skipping wallet provisioning"
+        "[wallet] Privy walletApi not available — skipping wallet provisioning"
       );
       return null;
     }
 
-    const wallet = await walletApi.create({
-      chainType: "ethereum",
+    // createWallet is the preferred method (create is deprecated)
+    const createFn = walletApi.createWallet?.bind(walletApi) ?? walletApi.create?.bind(walletApi);
+
+    if (!createFn) {
+      console.warn(
+        "[wallet] Privy walletApi.createWallet not available — skipping wallet provisioning"
+      );
+      return null;
+    }
+
+    const wallet = await createFn({
+      chainType: "solana",
     });
 
     const address: string = wallet.address;

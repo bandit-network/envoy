@@ -142,3 +142,69 @@ export async function confirmPairing(
     expiresAt: result.expiresAt,
   };
 }
+
+/**
+ * Confirm a pairing using only pairingId + secret — no agent ID needed.
+ * Resolves the agent from the pairing record automatically.
+ * This is the preferred flow for agent runtimes: the human provides
+ * just the pairing ID and secret, and the agent figures out the rest.
+ */
+export async function confirmPairingDirect(
+  pairingId: string,
+  secret: string
+): Promise<ConfirmPairingResult> {
+  // Look up the pairing to discover the agent ID
+  const pairing = await db.query.pairings.findFirst({
+    where: eq(pairings.id, pairingId),
+  });
+
+  if (!pairing) {
+    throw new Error("Pairing not found");
+  }
+
+  if (pairing.used) {
+    throw new Error("Pairing secret has already been used");
+  }
+
+  if (pairing.expiresAt < new Date()) {
+    throw new Error("Pairing secret has expired");
+  }
+
+  // Verify the secret against the stored hash
+  const valid = await verify(pairing.secretHash, secret);
+  if (!valid) {
+    throw new Error("Invalid pairing secret");
+  }
+
+  // Mark as used
+  const now = new Date();
+  await db
+    .update(pairings)
+    .set({ used: true, pairedAt: now })
+    .where(eq(pairings.id, pairingId));
+
+  // Get the agent's owner to issue the manifest
+  const agent = await db.query.agents.findFirst({
+    where: eq(agents.id, pairing.agentId),
+  });
+
+  if (!agent) {
+    throw new Error("Agent not found");
+  }
+
+  // Issue a manifest for the agent
+  const result = await issueManifest(pairing.agentId, agent.ownerId);
+
+  logAudit({
+    action: "pairing_confirmed",
+    agentId: pairing.agentId,
+    metadata: { pairingId, manifestId: result.manifestId },
+  });
+
+  return {
+    manifestId: result.manifestId,
+    manifestJson: result.manifestJson as unknown as Record<string, unknown>,
+    signature: result.signature,
+    expiresAt: result.expiresAt,
+  };
+}

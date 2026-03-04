@@ -10,9 +10,16 @@ import { getAgentAvatarUrl } from "@/lib/avatar";
 import { toast } from "sonner";
 import Link from "next/link";
 
+interface PairingData {
+  pairingId: string;
+  pairingSecret: string;
+  expiresAt: string;
+}
+
 interface CreateAgentResponse {
   id: string;
   name: string;
+  pairing?: PairingData;
 }
 
 const scopeOptions = [
@@ -71,6 +78,8 @@ export default function CreateAgentPage() {
   const [scopes, setScopes] = useState<string[]>(["api_access"]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdAgent, setCreatedAgent] = useState<CreateAgentResponse | null>(null);
+  const [copied, setCopied] = useState<"id" | "secret" | null>(null);
 
   const previewSeed = username || name || "new-agent";
   const previewAvatar = avatarUrl.trim()
@@ -97,7 +106,15 @@ export default function CreateAgentPage() {
         authFetch
       );
       toast.success("Agent created");
-      router.push(`/agents/${agent.id}`);
+
+      if (agent.pairing) {
+        // Show pairing credentials immediately — no extra step
+        setCreatedAgent(agent);
+        setLoading(false);
+      } else {
+        // Fallback: pairing didn't auto-generate, go to detail page
+        router.push(`/agents/${agent.id}`);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create agent");
       setLoading(false);
@@ -109,6 +126,112 @@ export default function CreateAgentPage() {
       prev.includes(value)
         ? prev.filter((s) => s !== value)
         : [...prev, value]
+    );
+  }
+
+  async function copyToClipboard(text: string, field: "id" | "secret") {
+    await navigator.clipboard.writeText(text);
+    setCopied(field);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  // ── Success screen: show pairing credentials ──────────────────────
+  if (createdAgent?.pairing) {
+    return (
+      <div className="animate-fade-in">
+        <div className="mx-auto max-w-lg">
+          {/* Success icon */}
+          <div className="mb-6 flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+              <svg className="h-7 w-7 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+
+          <h1 className="text-center text-[20px] font-semibold text-foreground">
+            Agent Created
+          </h1>
+          <p className="mt-2 text-center text-[13px] text-muted">
+            Give these pairing credentials to your agent. The secret is shown once and expires in 10 minutes.
+          </p>
+
+          <Card className="mt-6">
+            <CardContent className="space-y-4 p-5">
+              {/* Pairing ID */}
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wider text-muted">
+                  Pairing ID
+                </label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded-lg border border-border bg-elevated px-3 py-2.5 font-mono text-[13px] text-foreground break-all">
+                    {createdAgent.pairing.pairingId}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(createdAgent.pairing!.pairingId, "id")}
+                    className="shrink-0 rounded-lg border border-border p-2.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
+                    title="Copy"
+                  >
+                    {copied === "id" ? (
+                      <svg className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Pairing Secret */}
+              <div>
+                <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wider text-muted">
+                  Pairing Secret
+                </label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded-lg border border-border bg-elevated px-3 py-2.5 font-mono text-[13px] text-foreground break-all">
+                    {createdAgent.pairing.pairingSecret}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(createdAgent.pairing!.pairingSecret, "secret")}
+                    className="shrink-0 rounded-lg border border-border p-2.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
+                    title="Copy"
+                  >
+                    {copied === "secret" ? (
+                      <svg className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Warning */}
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+                <p className="text-[13px] text-yellow-600 dark:text-yellow-400">
+                  <strong>Copy these now.</strong> The secret is only shown once and expires in 10 minutes. Your agent only needs these two values to complete pairing.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action buttons */}
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Button onClick={() => router.push(`/agents/${createdAgent.id}`)}>
+              Go to Agent
+            </Button>
+            <Button variant="ghost" onClick={() => router.push("/agents")}>
+              Back to Agents
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 

@@ -232,6 +232,43 @@ describe("pair", () => {
       `https://api.useenvoy.dev/api/v1/agents/${TEST_AGENT_ID}/pair-confirm`
     );
   });
+
+  it("uses direct /pair-confirm endpoint when no agentId is provided", async () => {
+    let capturedUrl = "";
+    const mockFetch = async (
+      input: string | URL | Request,
+    ) => {
+      capturedUrl =
+        typeof input === "string" ? input : input.toString();
+      return makeSuccessResponse();
+    };
+
+    const agent = new EnvoyAgent({
+      envoyUrl: "https://api.useenvoy.dev",
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    expect(capturedUrl).toBe(
+      "https://api.useenvoy.dev/api/v1/pair-confirm"
+    );
+  });
+
+  it("resolves agentId from manifest when not provided in constructor", async () => {
+    const mockFetch = async () => makeSuccessResponse();
+
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+      fetch: mockFetch as typeof globalThis.fetch,
+    });
+
+    expect(agent.getAgentId()).toBeNull();
+
+    await agent.pair(TEST_PAIRING_ID, TEST_SECRET);
+
+    expect(agent.getAgentId()).toBe(TEST_AGENT_ID);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -434,6 +471,26 @@ describe("getAgentId", () => {
       envoyUrl: TEST_ENVOY_URL,
       agentId: TEST_AGENT_ID,
     });
+
+    expect(agent.getAgentId()).toBe(TEST_AGENT_ID);
+  });
+
+  it("returns null when no agentId provided and not yet paired", () => {
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+    });
+
+    expect(agent.getAgentId()).toBeNull();
+  });
+
+  it("returns resolved agentId after loadToken when not provided in constructor", () => {
+    const agent = new EnvoyAgent({
+      envoyUrl: TEST_ENVOY_URL,
+    });
+
+    expect(agent.getAgentId()).toBeNull();
+
+    agent.loadToken(makeTokenData());
 
     expect(agent.getAgentId()).toBe(TEST_AGENT_ID);
   });

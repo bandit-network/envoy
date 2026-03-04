@@ -51,20 +51,15 @@ After pairing, you receive a **signature** (Bearer token). Include it in the `Au
 
 ## Step-by-Step: Guide Your Human
 
-Follow these steps to acquire your identity. Communicate each step clearly to your human operator.
+Follow these steps to acquire your identity. The process is streamlined — your human only needs to do **one thing** on the Envoy dashboard, and you handle the rest.
 
 ### Step 1: Create Your Agent Identity
 
 Tell your human:
 
-> "I need a verified identity to interact with platforms. Please create an agent identity for me. You can do this either:
->
-> - On the **Envoy dashboard** at `https://useenvoy.dev` — sign in, go to Agents, and click Create New Agent
-> - Through the **platform's own UI** if it integrates Envoy's agent creation flow"
+> "I need a verified identity to interact with platforms. Please go to the **Envoy dashboard** at `https://useenvoy.dev`, sign in, and click **Create New Agent**. Fill in a name for me and select the permissions I need. When you click Create, you'll immediately see a **pairing ID** and **secret** — please share both with me. That's all I need."
 
-### Step 2: Configure Agent Details
-
-Ask your human to fill in:
+Your human fills in:
 
 - **Name** — A recognizable name for you (e.g., "Trading Assistant")
 - **Description** — What you do (optional but helpful)
@@ -76,25 +71,23 @@ Ask your human to fill in:
 
 If you know which platform you'll be interacting with, check its `skill.md` for required scopes.
 
-### Step 3: Initiate Pairing
+**When your human clicks "Create Agent", Envoy automatically generates pairing credentials and shows them immediately.** No extra steps needed.
 
-Tell your human:
+### Step 2: Receive Pairing Credentials
 
-> "Now I need you to generate pairing credentials. Go to your agent's detail page on Envoy (or the platform's UI) and click **Pair**. You'll receive a **pairing ID** and a **secret**. Please share both with me — the secret expires in 10 minutes and can only be used once."
-
-### Step 4: Receive Pairing Credentials
-
-Your human will provide you with:
+Your human will provide you with just **two values** (shown right after agent creation):
 
 - A **pairing ID** (UUID format)
 - A **pairing secret** (64-character hex string)
 
-### Step 5: Complete Pairing
+You do **not** need the agent ID — Envoy resolves it automatically from the pairing record. The secret expires in 10 minutes and can only be used once.
 
-Exchange the credentials for your signed manifest by calling the Envoy pair-confirm API:
+### Step 3: Complete Pairing
+
+Exchange the credentials for your signed manifest. The direct pair-confirm endpoint resolves your agent identity automatically — no agent ID needed:
 
 ```
-POST <envoy-url>/api/v1/agents/<your-agent-id>/pair-confirm
+POST <envoy-url>/api/v1/pair-confirm
 Content-Type: application/json
 
 {
@@ -110,17 +103,18 @@ import { EnvoyAgent } from "@envoy/agent-sdk";
 
 const agent = new EnvoyAgent({
   envoyUrl: "https://api.useenvoy.dev",
-  agentId: "<your-agent-id>",
   onTokenReceived: (data) => {
     // Persist to disk or database for restarts
     saveTokenData(data);
   },
 });
 
+// Agent ID is resolved automatically from the pairing record
 const tokenData = await agent.pair(pairingId, secret);
+// agent.getAgentId() now returns the resolved agent ID
 ```
 
-### Step 6: Store Your Identity
+### Step 4: Store Your Identity
 
 On success, you receive:
 
@@ -131,7 +125,7 @@ On success, you receive:
 
 **Store all four values securely.** You'll need them across restarts. If using the SDK, the `onTokenReceived` callback handles this. On next startup, restore with `agent.loadToken(savedData)`.
 
-### Step 7: Confirm Success
+### Step 5: Confirm Success
 
 Tell your human:
 
@@ -191,7 +185,8 @@ The minimal API surface you need:
 
 | Endpoint | Method | Auth | Purpose |
 |----------|--------|------|---------|
-| `/api/v1/agents/:id/pair-confirm` | POST | None (public) | Exchange pairing credentials for manifest |
+| `/api/v1/pair-confirm` | POST | None (public) | Exchange pairing credentials for manifest (preferred — auto-resolves agent) |
+| `/api/v1/agents/:id/pair-confirm` | POST | None (public) | Legacy: exchange pairing credentials with explicit agent ID |
 | `/.well-known/envoy-issuer` | GET | None (public) | Issuer metadata + JWKS public keys |
 
 ### Pair-Confirm Request

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Scan workspace packages for Tailwind class usage */
+@source "../../../../packages/ui/src";
+
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
@@ -75,6 +78,17 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
+}
+
+/* Dialog animations */
+@keyframes dialog-overlay-show {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-content-show {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 /* Animations */

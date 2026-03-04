@@ -8,8 +8,13 @@ export interface EnvoyAgentOptions {
   /** Base URL of the Envoy API (e.g. "https://api.useenvoy.dev") */
   envoyUrl: string;
 
-  /** The agent's UUID as registered on Envoy */
-  agentId: string;
+  /**
+   * The agent's UUID as registered on Envoy.
+   * Optional — if omitted, the agent ID is resolved automatically during
+   * `pair()` from the pairing record. After pairing, `getAgentId()` returns
+   * the resolved ID.
+   */
+  agentId?: string;
 
   /** Optional custom fetch implementation (defaults to globalThis.fetch) */
   fetch?: typeof globalThis.fetch;

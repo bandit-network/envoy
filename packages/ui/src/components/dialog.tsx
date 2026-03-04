@@ -15,9 +15,10 @@ export const DialogOverlay = forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/60",
       className
     )}
+    style={{ animation: "dialog-overlay-show 150ms ease-out" }}
     {...props}
   />
 ));
@@ -35,6 +36,7 @@ export const DialogContent = forwardRef<
         "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-surface p-6 shadow-lg",
         className
       )}
+      style={{ animation: "dialog-content-show 200ms ease-out" }}
       {...props}
     >
       {children}
