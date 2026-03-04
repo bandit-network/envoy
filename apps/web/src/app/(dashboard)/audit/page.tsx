@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   CardContent,
+  Input,
   Skeleton,
   EmptyState,
 } from "@envoy/ui";
@@ -54,6 +55,8 @@ const actionDotColor: Record<string, string> = {
   api_key_revoked: "bg-danger",
 };
 
+const ALL_ACTIONS = Object.keys(actionLabels);
+
 export default function AuditPage() {
   const authFetch = useAuthFetch();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
@@ -64,11 +67,29 @@ export default function AuditPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const limit = 20;
 
+  // Filter state
+  const [actionFilter, setActionFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
   const loadAudit = useCallback(async () => {
     try {
       setLoading(true);
+      const params = new URLSearchParams({
+        limit: String(limit),
+        offset: String(offset),
+      });
+      if (actionFilter) params.set("action", actionFilter);
+      if (fromDate) params.set("from", new Date(fromDate).toISOString());
+      if (toDate) {
+        // Set to end of day
+        const end = new Date(toDate);
+        end.setHours(23, 59, 59, 999);
+        params.set("to", end.toISOString());
+      }
+
       const data = await apiGet<AuditResponse>(
-        `/api/v1/audit?limit=${limit}&offset=${offset}`,
+        `/api/v1/audit?${params.toString()}`,
         authFetch
       );
       setEntries(data.entries);
@@ -81,14 +102,28 @@ export default function AuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [authFetch, offset]);
+  }, [authFetch, offset, actionFilter, fromDate, toDate]);
 
   useEffect(() => {
     loadAudit();
   }, [loadAudit]);
 
+  // Reset pagination when filters change
+  useEffect(() => {
+    setOffset(0);
+  }, [actionFilter, fromDate, toDate]);
+
   const totalPages = Math.ceil(total / limit);
   const currentPage = Math.floor(offset / limit) + 1;
+
+  const hasFilters = actionFilter || fromDate || toDate;
+
+  function clearFilters() {
+    setActionFilter("");
+    setFromDate("");
+    setToDate("");
+    setOffset(0);
+  }
 
   return (
     <div className="animate-fade-in">
@@ -96,6 +131,59 @@ export default function AuditPage() {
         title="Audit Log"
         description="Activity log across all your agents"
       />
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-[12px] font-medium text-muted">
+            Action Type
+          </label>
+          <select
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-[13px] text-foreground outline-none transition-colors focus:border-foreground/30"
+          >
+            <option value="">All actions</option>
+            {ALL_ACTIONS.map((action) => (
+              <option key={action} value={action}>
+                {actionLabels[action] ?? action}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-[12px] font-medium text-muted">
+            From
+          </label>
+          <Input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="h-9 w-[160px] text-[13px]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[12px] font-medium text-muted">
+            To
+          </label>
+          <Input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="h-9 w-[160px] text-[13px]"
+          />
+        </div>
+        {hasFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="mb-0.5"
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger">
@@ -133,8 +221,12 @@ export default function AuditPage() {
                 />
               </svg>
             }
-            title="No activity yet"
-            description="Audit entries will appear here as you create and manage agents."
+            title={hasFilters ? "No matching entries" : "No activity yet"}
+            description={
+              hasFilters
+                ? "Try adjusting your filters to see more results."
+                : "Audit entries will appear here as you create and manage agents."
+            }
           />
         </Card>
       ) : (

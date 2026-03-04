@@ -11,6 +11,7 @@ const VALID_EVENT_TYPES = [
   "manifest.revoked",
   "agent.revoked",
   "manifest.issued",
+  "manifest.expiring",
 ] as const;
 
 const subscribeSchema = z.object({

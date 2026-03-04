@@ -52,6 +52,7 @@ interface AuditResponse {
 interface Stats {
   totalAgents: number;
   activeAgents: number;
+  suspendedAgents: number;
   revokedAgents: number;
   totalPlatforms: number;
   recentActivity: AuditEntry[];
@@ -86,6 +87,7 @@ export default function DashboardPage() {
 
         const agents = agentData.agents;
         const active = agents.filter((a) => a.status === "active").length;
+        const suspended = agents.filter((a) => a.status === "suspended").length;
         const revoked = agents.filter((a) => a.status === "revoked").length;
         const sorted = [...agents].sort(
           (a, b) =>
@@ -95,6 +97,7 @@ export default function DashboardPage() {
         setStats({
           totalAgents: agentData.total,
           activeAgents: active,
+          suspendedAgents: suspended,
           revokedAgents: revoked,
           totalPlatforms: platformData.total,
           recentActivity: auditData.entries,
@@ -104,6 +107,7 @@ export default function DashboardPage() {
         setStats({
           totalAgents: 0,
           activeAgents: 0,
+          suspendedAgents: 0,
           revokedAgents: 0,
           totalPlatforms: 0,
           recentActivity: [],
@@ -132,6 +136,15 @@ export default function DashboardPage() {
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: "Suspended",
+      value: stats?.suspendedAgents ?? 0,
+      icon: (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
         </svg>
       ),
     },
@@ -201,7 +214,7 @@ export default function DashboardPage() {
       />
 
       {/* Stats */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {statCards.map((card) => (
           <Card key={card.label} className="transition-colors hover:border-muted/40">
             <CardContent className="p-4">

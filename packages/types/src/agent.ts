@@ -68,6 +68,15 @@ const optionalUrlSchema = z
   .nullable()
   .optional();
 
+/** Optional TTL in seconds (60s min, 86400s max) */
+const optionalTtlSchema = z
+  .number()
+  .int()
+  .min(60, "TTL must be at least 60 seconds")
+  .max(86400, "TTL must be at most 86400 seconds (24 hours)")
+  .nullable()
+  .optional();
+
 export const createAgentSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(1000).nullable().optional(),
@@ -76,6 +85,7 @@ export const createAgentSchema = z.object({
   socialMoltbook: optionalUrlSchema,
   socialX: optionalUrlSchema,
   scopes: agentScopesSchema.optional(),
+  defaultTtl: optionalTtlSchema,
 });
 
 export const updateAgentSchema = z.object({
@@ -86,6 +96,7 @@ export const updateAgentSchema = z.object({
   socialMoltbook: optionalUrlSchema,
   socialX: optionalUrlSchema,
   scopes: agentScopesSchema.optional(),
+  defaultTtl: optionalTtlSchema,
   status: agentStatusSchema.optional(),
 });
 

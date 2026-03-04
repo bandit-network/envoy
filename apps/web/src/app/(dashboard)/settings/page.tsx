@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import Link from "next/link";
 import { Card, CardContent, Skeleton, CopyButton } from "@envoy/ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
@@ -15,6 +16,17 @@ interface UserInfo {
   };
 }
 
+interface PlatformRow {
+  id: string;
+  name: string;
+  domain: string;
+}
+
+interface PlatformListResponse {
+  platforms: PlatformRow[];
+  total: number;
+}
+
 const THEME_OPTIONS = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
@@ -24,6 +36,7 @@ const THEME_OPTIONS = [
 export default function SettingsPage() {
   const authFetch = useAuthFetch();
   const [user, setUser] = useState<UserInfo["user"] | null>(null);
+  const [platforms, setPlatforms] = useState<PlatformRow[]>([]);
   const [loading, setLoading] = useState(true);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -35,8 +48,14 @@ export default function SettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await apiGet<UserInfo>("/api/v1/me", authFetch);
-        setUser(data.user);
+        const [userData, platformData] = await Promise.all([
+          apiGet<UserInfo>("/api/v1/me", authFetch),
+          apiGet<PlatformListResponse>("/api/v1/platforms?limit=100", authFetch).catch(
+            () => ({ platforms: [], total: 0 })
+          ),
+        ]);
+        setUser(userData.user);
+        setPlatforms(platformData.platforms);
       } catch {
         // Silently fail
       } finally {
@@ -124,27 +143,61 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Platforms Overview */}
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-[14px] font-semibold text-foreground">Platforms</h3>
+            <p className="mt-1 text-[13px] text-muted">
+              Platforms you&apos;ve registered for token verification
+            </p>
+            {loading ? (
+              <div className="mt-4 space-y-3">
+                <Skeleton className="h-5 w-48" />
+              </div>
+            ) : platforms.length === 0 ? (
+              <div className="mt-4">
+                <p className="text-[13px] text-muted">No platforms registered yet.</p>
+                <Link
+                  href="/platforms/new"
+                  className="mt-2 inline-block text-[13px] font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  Register a platform →
+                </Link>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-0 divide-y divide-border">
+                {platforms.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={`/platforms/${p.id}`}
+                    className="flex items-center justify-between py-3 first:pt-0 transition-colors hover:text-foreground"
+                  >
+                    <div>
+                      <p className="text-[13px] font-medium text-foreground">{p.name}</p>
+                      <p className="text-[12px] text-muted">{p.domain}</p>
+                    </div>
+                    <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Notifications */}
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-[14px] font-semibold text-muted">Notifications</h3>
-            <div className="mt-4 space-y-0 divide-y divide-border">
-              {[
-                { label: "Agent revocation alerts", desc: "Get notified when an agent is revoked" },
-                { label: "Pairing events", desc: "Get notified when an agent pairs with a runtime" },
-                { label: "Platform registrations", desc: "Get notified when a new platform registers" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between py-3 first:pt-0">
-                  <div>
-                    <p className="text-[13px] text-muted">{item.label}</p>
-                    <p className="text-[12px] text-muted/60">{item.desc}</p>
-                  </div>
-                  {/* Disabled toggle */}
-                  <div className="h-5 w-9 rounded-full bg-elevated" />
-                </div>
-              ))}
+            <div className="flex items-center justify-between">
+              <h3 className="text-[14px] font-semibold text-muted">Notifications</h3>
+              <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-[11px] font-medium text-muted">
+                Coming soon
+              </span>
             </div>
-            <p className="mt-3 text-[12px] text-muted">Coming soon</p>
+            <p className="mt-2 text-[13px] text-muted">
+              Email and webhook notifications for agent events will be available in a future update.
+            </p>
           </CardContent>
         </Card>
 

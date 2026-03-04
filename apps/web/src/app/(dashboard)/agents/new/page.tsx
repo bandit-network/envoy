@@ -76,6 +76,7 @@ export default function CreateAgentPage() {
   const [socialMoltbook, setSocialMoltbook] = useState("");
   const [socialX, setSocialX] = useState("");
   const [scopes, setScopes] = useState<string[]>(["api_access"]);
+  const [defaultTtl, setDefaultTtl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgent, setCreatedAgent] = useState<CreateAgentResponse | null>(null);
@@ -102,6 +103,7 @@ export default function CreateAgentPage() {
           socialMoltbook: socialMoltbook.trim() || null,
           socialX: socialX.trim() || null,
           scopes,
+          defaultTtl: defaultTtl ? Number(defaultTtl) : undefined,
         },
         authFetch
       );
@@ -403,6 +405,44 @@ export default function CreateAgentPage() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border" />
+
+              {/* Token Configuration */}
+              <div>
+                <h3 className="text-[13px] font-medium uppercase tracking-wider text-muted">
+                  Token Configuration
+                </h3>
+                <div className="mt-4">
+                  <label htmlFor="defaultTtl" className="mb-1.5 block text-[13px] font-medium text-foreground">
+                    Default Token TTL (seconds)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="defaultTtl"
+                      type="number"
+                      placeholder="3600"
+                      min={60}
+                      max={86400}
+                      value={defaultTtl}
+                      onChange={(e) => setDefaultTtl(e.target.value)}
+                      className="max-w-[180px]"
+                    />
+                    <span className="text-[12px] text-muted">
+                      {defaultTtl
+                        ? `= ${Number(defaultTtl) >= 3600
+                            ? `${Math.floor(Number(defaultTtl) / 3600)}h ${Math.floor((Number(defaultTtl) % 3600) / 60)}m`
+                            : `${Math.floor(Number(defaultTtl) / 60)}m`
+                          }`
+                        : "Default: 1 hour"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[12px] text-muted">
+                    How long manifests are valid. Min: 60s, Max: 86400s (24h). Leave empty for default (1 hour).
+                  </p>
                 </div>
               </div>
 

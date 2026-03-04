@@ -24,9 +24,6 @@ export async function issueManifest(
   userId: string,
   ttl?: number
 ): Promise<IssueManifestResult> {
-  // Clamp TTL
-  const effectiveTtl = Math.min(ttl ?? DEFAULT_TTL, MAX_TTL);
-
   // Fetch agent and verify ownership
   const agent = await db.query.agents.findFirst({
     where: and(eq(agents.id, agentId), eq(agents.ownerId, userId)),
@@ -39,6 +36,12 @@ export async function issueManifest(
   if (agent.status !== "active") {
     throw new Error(`Cannot issue manifest for agent with status: ${agent.status}`);
   }
+
+  // Clamp TTL: explicit > per-agent default > global default
+  const effectiveTtl = Math.min(
+    ttl ?? (agent.defaultTtl as number | null) ?? DEFAULT_TTL,
+    MAX_TTL
+  );
 
   const now = new Date();
   const expiresAt = new Date(now.getTime() + effectiveTtl * 1000);

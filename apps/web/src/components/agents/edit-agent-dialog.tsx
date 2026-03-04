@@ -27,6 +27,7 @@ interface Agent {
   socialMoltbook: string | null;
   socialX: string | null;
   scopes: string[];
+  defaultTtl?: number | null;
 }
 
 interface EditAgentDialogProps {
@@ -55,6 +56,9 @@ export function EditAgentDialog({ agent, onSaved }: EditAgentDialogProps) {
   const [socialMoltbook, setSocialMoltbook] = useState(agent.socialMoltbook ?? "");
   const [socialX, setSocialX] = useState(agent.socialX ?? "");
   const [scopes, setScopes] = useState<string[]>(agent.scopes);
+  const [defaultTtl, setDefaultTtl] = useState<string>(
+    agent.defaultTtl ? String(agent.defaultTtl) : ""
+  );
 
   // Reset form when dialog opens or agent changes
   useEffect(() => {
@@ -66,6 +70,7 @@ export function EditAgentDialog({ agent, onSaved }: EditAgentDialogProps) {
       setSocialMoltbook(agent.socialMoltbook ?? "");
       setSocialX(agent.socialX ?? "");
       setScopes(agent.scopes);
+      setDefaultTtl(agent.defaultTtl ? String(agent.defaultTtl) : "");
       setError(null);
     }
   }, [open, agent]);
@@ -94,6 +99,7 @@ export function EditAgentDialog({ agent, onSaved }: EditAgentDialogProps) {
           socialMoltbook: socialMoltbook.trim() || null,
           socialX: socialX.trim() || null,
           scopes,
+          defaultTtl: defaultTtl ? Number(defaultTtl) : null,
         },
         authFetch
       );
@@ -269,6 +275,41 @@ export function EditAgentDialog({ agent, onSaved }: EditAgentDialogProps) {
                 Scope changes take effect on next manifest refresh.
               </div>
             )}
+          </div>
+
+          {/* Token TTL */}
+          <div className="space-y-3 border-t border-border pt-4">
+            <h4 className="text-[12px] font-medium uppercase tracking-wider text-muted">
+              Token Configuration
+            </h4>
+            <div>
+              <label htmlFor="edit-ttl" className="mb-1 block text-[13px] font-medium text-foreground">
+                Default Token TTL (seconds)
+              </label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="edit-ttl"
+                  type="number"
+                  placeholder="3600"
+                  min={60}
+                  max={86400}
+                  value={defaultTtl}
+                  onChange={(e) => setDefaultTtl(e.target.value)}
+                  className="max-w-[180px]"
+                />
+                <span className="text-[12px] text-muted">
+                  {defaultTtl
+                    ? `= ${Number(defaultTtl) >= 3600
+                        ? `${Math.floor(Number(defaultTtl) / 3600)}h ${Math.floor((Number(defaultTtl) % 3600) / 60)}m`
+                        : `${Math.floor(Number(defaultTtl) / 60)}m`
+                      }`
+                    : "Default: 1 hour"}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-muted">
+                How long manifests are valid. Min: 60s, Max: 86400s (24h). Leave empty for default (1 hour).
+              </p>
+            </div>
           </div>
 
           {/* Error */}

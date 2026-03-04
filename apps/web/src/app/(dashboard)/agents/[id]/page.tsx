@@ -11,7 +11,7 @@ import { PairingDialog } from "@/components/agents/pairing-dialog";
 import { RevokeDialog } from "@/components/agents/revoke-dialog";
 import { EditAgentDialog } from "@/components/agents/edit-agent-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
-import { apiGet, apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, ApiError } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -134,6 +134,36 @@ export default function AgentDetailPage() {
     }
   }
 
+  async function handleSuspend() {
+    setActionLoading("suspend");
+    try {
+      await apiPatch(`/api/v1/agents/${agentId}`, { status: "suspended" }, authFetch);
+      toast.success("Agent suspended");
+      await loadAgent();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to suspend agent";
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleUnsuspend() {
+    setActionLoading("unsuspend");
+    try {
+      await apiPatch(`/api/v1/agents/${agentId}`, { status: "active" }, authFetch);
+      toast.success("Agent reactivated");
+      await loadAgent();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to reactivate agent";
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -164,6 +194,7 @@ export default function AgentDetailPage() {
 
   const { agent, manifest } = data;
   const isActive = agent.status === "active";
+  const isSuspended = agent.status === "suspended";
 
   return (
     <div className="animate-fade-in">
@@ -208,6 +239,39 @@ export default function AgentDetailPage() {
               </Button>
             )}
             <PairingDialog agentId={agentId} />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSuspend}
+              loading={actionLoading === "suspend"}
+              className="border-yellow-500/30 text-yellow-600 hover:bg-yellow-500/10 dark:text-yellow-400"
+            >
+              <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+              </svg>
+              Suspend
+            </Button>
+            <RevokeDialog
+              agentId={agentId}
+              agentName={agent.name}
+              onRevoked={() => loadAgent()}
+            />
+          </div>
+        )}
+
+        {isSuspended && (
+          <div className="flex flex-wrap items-center gap-2">
+            <EditAgentDialog agent={agent} onSaved={() => loadAgent()} />
+            <Button
+              size="sm"
+              onClick={handleUnsuspend}
+              loading={actionLoading === "unsuspend"}
+            >
+              <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+              </svg>
+              Reactivate
+            </Button>
             <RevokeDialog
               agentId={agentId}
               agentName={agent.name}
@@ -216,6 +280,18 @@ export default function AgentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Suspension banner */}
+      {isSuspended && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+          <svg className="h-4 w-4 shrink-0 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <p className="text-[13px] text-yellow-600 dark:text-yellow-400">
+            This agent is suspended. Manifests cannot be issued until reactivated.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger">

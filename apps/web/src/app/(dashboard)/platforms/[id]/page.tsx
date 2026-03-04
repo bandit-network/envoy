@@ -19,6 +19,7 @@ import {
   EmptyState,
 } from "@envoy/ui";
 import { ApiKeyDialog } from "@/components/platforms/api-key-dialog";
+import { WebhookSubscriptionDialog } from "@/components/platforms/webhook-subscription-dialog";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiDelete, ApiError } from "@/lib/api";
 import { formatDate, truncateId } from "@/lib/format";
@@ -51,6 +52,18 @@ interface ApiKeysResponse {
   keys: ApiKeyRow[];
 }
 
+interface WebhookSubscription {
+  id: string;
+  platformId: string;
+  url: string;
+  eventTypes: string[];
+  createdAt: string;
+}
+
+interface WebhooksResponse {
+  subscriptions: WebhookSubscription[];
+}
+
 export default function PlatformDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -59,12 +72,13 @@ export default function PlatformDetailPage() {
 
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [keys, setKeys] = useState<ApiKeyRow[]>([]);
+  const [webhooks, setWebhooks] = useState<WebhookSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadPlatform = useCallback(async () => {
     try {
-      const [detailData, keysData] = await Promise.all([
+      const [detailData, keysData, webhooksData] = await Promise.all([
         apiGet<PlatformDetailResponse>(
           `/api/v1/platforms/${platformId}`,
           authFetch
@@ -73,9 +87,16 @@ export default function PlatformDetailPage() {
           `/api/v1/platforms/${platformId}/api-keys`,
           authFetch
         ),
+        apiGet<WebhooksResponse>("/api/v1/webhooks", authFetch).catch(() => ({
+          subscriptions: [],
+        })),
       ]);
       setPlatform(detailData.platform);
       setKeys(keysData.keys);
+      // Filter webhooks to this platform
+      setWebhooks(
+        webhooksData.subscriptions.filter((s) => s.platformId === platformId)
+      );
       setError(null);
     } catch (err) {
       setError(
@@ -103,6 +124,20 @@ export default function PlatformDetailPage() {
         err instanceof ApiError ? err.message : "Failed to revoke API key";
       toast.error(message);
       setError(message);
+    }
+  }
+
+  async function handleDeleteWebhook(subscriptionId: string) {
+    try {
+      await apiDelete(`/api/v1/webhooks/${subscriptionId}`, authFetch);
+      toast.success("Webhook subscription deleted");
+      await loadPlatform();
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Failed to delete subscription";
+      toast.error(message);
     }
   }
 
@@ -155,7 +190,10 @@ export default function PlatformDetailPage() {
           </div>
         </div>
         {!platform.revokedAt && (
-          <ApiKeyDialog platformId={platformId} onCreated={() => loadPlatform()} />
+          <div className="flex flex-wrap items-center gap-2">
+            <ApiKeyDialog platformId={platformId} onCreated={() => loadPlatform()} />
+            <WebhookSubscriptionDialog platformId={platformId} onCreated={() => loadPlatform()} />
+          </div>
         )}
       </div>
 
@@ -257,6 +295,69 @@ export default function PlatformDetailPage() {
                         Revoke
                       </button>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Webhook Subscriptions */}
+      <div className="mt-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[14px] font-semibold text-foreground">
+                Webhook Subscriptions
+                {webhooks.length > 0 && (
+                  <span className="ml-2 text-[12px] font-normal text-muted">
+                    {webhooks.length} active
+                  </span>
+                )}
+              </h3>
+            </div>
+
+            {webhooks.length === 0 ? (
+              <div className="mt-6 text-center">
+                <p className="text-[13px] text-muted">No webhook subscriptions</p>
+                <p className="mt-1 text-[12px] text-muted">
+                  Add a webhook to receive real-time event notifications.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-0 divide-y divide-border">
+                {webhooks.map((sub) => (
+                  <div key={sub.id} className="flex items-center justify-between py-3 first:pt-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+                        <code className="truncate font-mono text-[12px] text-foreground">
+                          {sub.url}
+                        </code>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {sub.eventTypes.map((et) => (
+                          <span
+                            key={et}
+                            className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-[10px] font-medium text-muted"
+                          >
+                            {et}
+                          </span>
+                        ))}
+                        <span className="text-[11px] text-muted">·</span>
+                        <span className="text-[11px] text-muted">
+                          {formatDate(sub.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteWebhook(sub.id)}
+                      className="shrink-0 text-[12px] font-medium text-danger transition-colors hover:text-danger/80"
+                    >
+                      Delete
+                    </button>
                   </div>
                 ))}
               </div>
