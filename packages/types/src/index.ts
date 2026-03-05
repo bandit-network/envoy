@@ -9,7 +9,8 @@ export {
   agentScopesSchema,
 } from "./agent";
 export type { CreateAgentInput, UpdateAgentInput, AgentScope } from "./agent";
-export type { AuthUser } from "./auth";
+export type { AuthUser, AuthChallengeRequest, AuthChallengeResponse, AuthVerifyRequest, AuthSessionResponse } from "./auth";
+export { authChallengeRequestSchema, authVerifyRequestSchema } from "./auth";
 export {
   manifestPayloadSchema,
   issueManifestSchema,

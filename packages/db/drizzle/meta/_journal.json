@@ -71,6 +71,13 @@
       "when": 1772673871423,
       "tag": "0009_mysterious_lady_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772688064231,
+      "tag": "0010_low_inhumans",
+      "breakpoints": true
     }
   ]
 }
