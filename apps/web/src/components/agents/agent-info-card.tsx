@@ -23,6 +23,7 @@ interface AgentInfoCardProps {
     scopes: string[];
     status: string;
     walletAddress?: string | null;
+    registryAssetId?: string | null;
     createdAt: string;
     revokedAt: string | null;
   };
@@ -94,6 +95,30 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
                 </>
               ) : (
                 <span className="text-muted">Not provisioned</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">8004 Registry</dt>
+            <dd className="mt-1 flex items-center gap-1.5 font-mono text-[13px]">
+              {agent.registryAssetId ? (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                  <a
+                    href={`https://8004market.io/asset/${agent.registryAssetId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground transition-colors hover:text-accent"
+                  >
+                    {truncateId(agent.registryAssetId)}
+                  </a>
+                  <CopyButton value={agent.registryAssetId} />
+                </>
+              ) : (
+                <>
+                  <span className="h-1.5 w-1.5 rounded-full bg-border" />
+                  <span className="font-sans text-muted">Not registered</span>
+                </>
               )}
             </dd>
           </div>

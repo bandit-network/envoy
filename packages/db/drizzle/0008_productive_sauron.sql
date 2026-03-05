@@ -1,0 +1,1 @@
+ALTER TABLE "agents" ADD COLUMN "registry_asset_id" text;

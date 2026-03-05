@@ -44,6 +44,7 @@ publicAgentsRouter.get("/agents/public/:username", async (c) => {
       avatarUrl: agent.avatarUrl,
       status: agent.status,
       walletAddress: agent.walletAddress,
+      registryAssetId: agent.registryAssetId,
       socialMoltbook: agent.socialMoltbook,
       socialX: agent.socialX,
       scopes: agent.scopes,

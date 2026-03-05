@@ -22,6 +22,7 @@ export const agents = pgTable("agents", {
   defaultTtl: integer("default_ttl"),
   status: agentStatusEnum("status").default("active").notNull(),
   walletAddress: text("wallet_address"),
+  registryAssetId: text("registry_asset_id"),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()

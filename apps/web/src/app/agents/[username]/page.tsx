@@ -13,6 +13,7 @@ interface PublicAgent {
   avatarUrl: string | null;
   status: string;
   walletAddress: string | null;
+  registryAssetId: string | null;
   socialMoltbook: string | null;
   socialX: string | null;
   scopes: string[];
@@ -97,6 +98,7 @@ export default async function AgentPublicProfilePage({
 
   const avatarSrc = getAvatarUrl(agent.id, agent.avatarUrl);
   const hasOnchainIdentity = !!agent.walletAddress;
+  const hasRegistryId = !!agent.registryAssetId;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 sm:py-16">
@@ -153,6 +155,30 @@ export default async function AgentPublicProfilePage({
                 On-Chain Identity
               </span>
             )}
+
+            {hasRegistryId && (
+              <a
+                href={`https://8004market.io/asset/${agent.registryAssetId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[12px] font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
+              >
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5"
+                  />
+                </svg>
+                8004 Registered
+              </a>
+            )}
           </div>
         </div>
 
@@ -174,6 +200,23 @@ export default async function AgentPublicProfilePage({
               <span className="font-mono text-[13px] text-foreground">
                 {truncateAddress(agent.walletAddress)}
               </span>
+            </div>
+          )}
+
+          {/* 8004 Registry */}
+          {agent.registryAssetId && (
+            <div className="flex items-center justify-between py-3">
+              <span className="text-[12px] font-medium uppercase tracking-wider text-muted">
+                8004 Asset
+              </span>
+              <a
+                href={`https://8004market.io/asset/${agent.registryAssetId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-[13px] text-foreground transition-colors hover:text-accent"
+              >
+                {truncateAddress(agent.registryAssetId)}
+              </a>
             </div>
           )}
 

@@ -9,6 +9,7 @@ import { issueManifest, refreshManifest } from "../services/manifest";
 import { createPairing } from "../services/pairing";
 import { deliverWebhook } from "../services/webhook";
 import { provisionWallet } from "../services/wallet";
+import { registerAgentOnChain } from "../services/registry";
 
 export const agentsRouter = new Hono<AuthEnv>();
 
@@ -67,9 +68,23 @@ agentsRouter.post("/", async (c) => {
 
   // Provision wallet (async, never blocks agent creation)
   const walletAddress = await provisionWallet(agent.id, user.userId);
-  const agentData = walletAddress
+  let agentData = walletAddress
     ? { ...agent, walletAddress }
     : agent;
+
+  // Register on 8004 registry (async, never blocks agent creation)
+  let registryAssetId: string | null = null;
+  if (walletAddress) {
+    registryAssetId = await registerAgentOnChain(
+      agent.id,
+      agent.name,
+      agent.description ?? "",
+      walletAddress
+    );
+    if (registryAssetId) {
+      agentData = { ...agentData, registryAssetId };
+    }
+  }
 
   // Auto-generate pairing credentials so the human can immediately
   // hand them to the agent runtime — no extra step required.
@@ -86,8 +101,17 @@ agentsRouter.post("/", async (c) => {
     action: "agent_created",
     userId: user.userId,
     agentId: agent.id,
-    metadata: { name, walletAddress },
+    metadata: { name, walletAddress, registryAssetId },
   });
+
+  if (registryAssetId) {
+    logAudit({
+      action: "agent_registry_registered",
+      userId: user.userId,
+      agentId: agent.id,
+      metadata: { registryAssetId },
+    });
+  }
 
   return c.json({
     success: true,
@@ -394,6 +418,73 @@ agentsRouter.post("/:id/pair", async (c) => {
       400
     );
   }
+});
+
+/**
+ * POST /:id/register -- Manually register agent on the 8004 Solana registry
+ */
+agentsRouter.post("/:id/register", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  // Verify ownership
+  const agent = await db.query.agents.findFirst({
+    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
+  });
+
+  if (!agent) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
+      404
+    );
+  }
+
+  if (agent.status !== "active") {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must be active to register on-chain" } },
+      400
+    );
+  }
+
+  if (!agent.walletAddress) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must have a wallet address to register on-chain" } },
+      400
+    );
+  }
+
+  if (agent.registryAssetId) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent is already registered on-chain" } },
+      400
+    );
+  }
+
+  const registryAssetId = await registerAgentOnChain(
+    agent.id,
+    agent.name,
+    agent.description ?? "",
+    agent.walletAddress
+  );
+
+  if (!registryAssetId) {
+    return c.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to register agent on-chain. Check server logs for details." } },
+      500
+    );
+  }
+
+  logAudit({
+    action: "agent_registry_registered",
+    userId: user.userId,
+    agentId: agent.id,
+    metadata: { registryAssetId },
+  });
+
+  return c.json({
+    success: true,
+    data: { registryAssetId },
+  }, 201);
 });
 
 /**

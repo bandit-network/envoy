@@ -25,6 +25,7 @@ interface Agent {
   scopes: string[];
   status: string;
   walletAddress: string | null;
+  registryAssetId: string | null;
   createdAt: string;
   updatedAt: string;
   revokedAt: string | null;
@@ -64,6 +65,7 @@ const actionLabels: Record<string, string> = {
   manifest_revoked: "Manifest revoked",
   pairing_created: "Pairing initiated",
   pairing_confirmed: "Pairing confirmed",
+  agent_registry_registered: "Registered on 8004",
 };
 
 export default function AgentDetailPage() {
@@ -126,6 +128,21 @@ export default function AgentDetailPage() {
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Failed to suspend agent";
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRegisterOnChain() {
+    setActionLoading("register");
+    try {
+      await apiPost(`/api/v1/agents/${agentId}/register`, {}, authFetch);
+      toast.success("Agent registered on 8004 registry");
+      await loadAgent();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to register on-chain";
       toast.error(message);
     } finally {
       setActionLoading(null);
@@ -211,6 +228,17 @@ export default function AgentDetailPage() {
                 loading={actionLoading === "refresh"}
               >
                 Refresh Manifest
+              </Button>
+            )}
+            {agent.walletAddress && !agent.registryAssetId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRegisterOnChain}
+                loading={actionLoading === "register"}
+                className="border-accent/30 text-accent hover:bg-accent/10"
+              >
+                Register on 8004
               </Button>
             )}
             <Button

@@ -44,6 +44,7 @@ verifyRouter.post("/verify", async (c) => {
           manifest: result.manifest,
           scopes: result.scopes,
           onchainIdentity: result.onchainIdentity,
+          registry: result.registry,
         },
       },
       401
@@ -59,6 +60,7 @@ verifyRouter.post("/verify", async (c) => {
       expired: false,
       scopes: result.scopes,
       onchainIdentity: result.onchainIdentity,
+      registry: result.registry,
     },
   });
 });

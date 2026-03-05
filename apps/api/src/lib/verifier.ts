@@ -9,6 +9,11 @@ interface OnchainIdentity {
   walletAddress: string | null;
 }
 
+interface RegistryInfo {
+  registered: boolean;
+  assetId: string | null;
+}
+
 interface VerificationResult {
   valid: boolean;
   manifest: ManifestPayload | null;
@@ -16,6 +21,7 @@ interface VerificationResult {
   expired: boolean;
   scopes: string[];
   onchainIdentity: OnchainIdentity;
+  registry: RegistryInfo;
   error?: string;
 }
 
@@ -27,6 +33,7 @@ export async function verifyManifestToken(
   token: string
 ): Promise<VerificationResult> {
   const noOnchain: OnchainIdentity = { verified: false, walletAddress: null };
+  const noRegistry: RegistryInfo = { registered: false, assetId: null };
 
   const invalid = (error: string, extra?: Partial<VerificationResult>): VerificationResult => ({
     valid: false,
@@ -35,6 +42,7 @@ export async function verifyManifestToken(
     expired: false,
     scopes: [],
     onchainIdentity: noOnchain,
+    registry: noRegistry,
     error,
     ...extra,
   });
@@ -60,6 +68,7 @@ export async function verifyManifestToken(
       expired: true,
       scopes: payload.scopes ?? [],
       onchainIdentity: noOnchain,
+      registry: noRegistry,
       error: "Token has expired",
     };
   }
@@ -93,14 +102,15 @@ export async function verifyManifestToken(
       expired: false,
       scopes: payload.scopes ?? [],
       onchainIdentity: noOnchain,
+      registry: noRegistry,
       error: "Token has been revoked",
     };
   }
 
-  // Look up agent's on-chain identity (wallet address)
+  // Look up agent's on-chain identity (wallet address) and registry status
   const agent = await db.query.agents.findFirst({
     where: eq(agents.id, payload.agent_id),
-    columns: { walletAddress: true },
+    columns: { walletAddress: true, registryAssetId: true },
   });
 
   return {
@@ -112,6 +122,10 @@ export async function verifyManifestToken(
     onchainIdentity: {
       verified: !!agent?.walletAddress,
       walletAddress: agent?.walletAddress ?? null,
+    },
+    registry: {
+      registered: !!agent?.registryAssetId,
+      assetId: agent?.registryAssetId ?? null,
     },
   };
 }
