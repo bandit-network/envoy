@@ -14,7 +14,18 @@ export class ApiError extends Error {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  const json = (await res.json()) as ApiResponse<T>;
+  let json: ApiResponse<T>;
+  try {
+    json = (await res.json()) as ApiResponse<T>;
+  } catch {
+    // Response body is not valid JSON (e.g., plain text 404/500 from proxy or middleware)
+    const text = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new ApiError(
+      res.status === 404 ? "NOT_FOUND" : "UNEXPECTED_RESPONSE",
+      text || `HTTP ${res.status}`,
+      res.status
+    );
+  }
 
   if (!json.success) {
     throw new ApiError(

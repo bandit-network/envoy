@@ -480,82 +480,19 @@ agentsRouter.post("/:id/pair", async (c) => {
   }
 });
 
-/**
- * POST /:id/register -- Manually register agent on the 8004 Solana registry
- */
-agentsRouter.post("/:id/register", async (c) => {
-  const user = c.get("user");
-  const agentId = c.req.param("id");
-
-  // Verify ownership
-  const agent = await db.query.agents.findFirst({
-    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
-  });
-
-  if (!agent) {
-    return c.json(
-      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
-      404
-    );
-  }
-
-  if (agent.status !== "active") {
-    return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "Agent must be active to register on-chain" } },
-      400
-    );
-  }
-
-  if (!agent.walletAddress) {
-    return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "Agent must have a wallet address to register on-chain" } },
-      400
-    );
-  }
-
-  if (agent.registryAssetId) {
-    return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "Agent is already registered on-chain" } },
-      400
-    );
-  }
-
-  const registryAssetId = await registerAgentOnChain(
-    agent.id,
-    agent.name,
-    agent.description ?? "",
-    agent.walletAddress,
-    agent.avatarUrl,
-    agent.username
-  );
-
-  if (!registryAssetId) {
-    return c.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to register agent on-chain. Check server logs for details." } },
-      500
-    );
-  }
-
-  logAudit({
-    action: "agent_registry_registered",
-    userId: user.userId,
-    agentId: agent.id,
-    metadata: { registryAssetId },
-  });
-
-  return c.json({
-    success: true,
-    data: { registryAssetId },
-  }, 201);
-});
+// NOTE: register-prepare and register-confirm routes are mounted directly
+// on the v1 app in index.ts (not on agentsRouter) because Hono's nested
+// route() doesn't reliably resolve parameterized sub-paths in deeply
+// nested sub-apps.
 
 /**
- * POST /:id/register/prepare -- Prepare unsigned registry tx for client-side signing
+ * POST /:id/import-wallet -- Import an existing Solana wallet address for an agent
  *
- * Human-pays model: the server uploads metadata to IPFS and builds
- * the transaction, but the human's wallet signs and pays the SOL fee.
+ * Allows users to set a wallet address on an agent that doesn't have one,
+ * or replace an existing wallet (if the agent isn't registered on-chain yet).
+ * Only the PUBLIC key is stored — Envoy never stores secret keys.
  */
-agentsRouter.post("/:id/register/prepare", async (c) => {
+agentsRouter.post("/:id/import-wallet", async (c) => {
   const user = c.get("user");
   const agentId = c.req.param("id");
 
@@ -572,103 +509,56 @@ agentsRouter.post("/:id/register/prepare", async (c) => {
 
   if (agent.status !== "active") {
     return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "Agent must be active to register on-chain" } },
-      400
-    );
-  }
-
-  if (!agent.walletAddress) {
-    return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "Agent must have a wallet address" } },
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must be active to import a wallet" } },
       400
     );
   }
 
   if (agent.registryAssetId) {
     return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "Agent is already registered on-chain" } },
+      { success: false, error: { code: "BAD_REQUEST", message: "Cannot change wallet for an agent already registered on-chain" } },
       400
     );
   }
 
-  // Human's connected wallet address (fee payer)
-  const body = await c.req.json<{ humanWalletAddress: string }>().catch(() => ({ humanWalletAddress: "" }));
-  if (!body.humanWalletAddress) {
+  const body = await c.req.json<{ walletAddress: string }>().catch(() => ({ walletAddress: "" }));
+  const walletAddress = body.walletAddress?.trim();
+
+  if (!walletAddress) {
     return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "humanWalletAddress is required" } },
+      { success: false, error: { code: "BAD_REQUEST", message: "walletAddress is required" } },
       400
     );
   }
 
-  const prepared = await prepareRegistrationTx(
-    agent.id,
-    agent.name,
-    agent.description ?? "",
-    agent.walletAddress,
-    body.humanWalletAddress,
-    agent.avatarUrl,
-    agent.username
-  );
-
-  if (!prepared) {
+  // Basic Solana public key validation (base58, 32-44 chars)
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)) {
     return c.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to prepare registration transaction" } },
-      500
+      { success: false, error: { code: "BAD_REQUEST", message: "Invalid Solana wallet address" } },
+      400
     );
   }
+
+  await db
+    .update(agents)
+    .set({ walletAddress })
+    .where(eq(agents.id, agentId));
+
+  logAudit({
+    action: "agent_wallet_imported",
+    userId: user.userId,
+    agentId: agent.id,
+    metadata: { walletAddress, previousWallet: agent.walletAddress ?? null },
+  });
 
   return c.json({
     success: true,
-    data: prepared,
+    data: { walletAddress },
   });
 });
 
 /**
- * POST /:id/register/confirm -- Confirm on-chain registration after human signed + sent tx
- */
-agentsRouter.post("/:id/register/confirm", async (c) => {
-  const user = c.get("user");
-  const agentId = c.req.param("id");
-
-  const agent = await db.query.agents.findFirst({
-    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
-  });
-
-  if (!agent) {
-    return c.json(
-      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
-      404
-    );
-  }
-
-  const body = await c.req.json<{ registryAssetId: string; txSignature: string }>().catch(() => ({ registryAssetId: "", txSignature: "" }));
-  if (!body.registryAssetId) {
-    return c.json(
-      { success: false, error: { code: "BAD_REQUEST", message: "registryAssetId is required" } },
-      400
-    );
-  }
-
-  const confirmed = await confirmRegistration(agentId, body.registryAssetId);
-  if (!confirmed) {
-    return c.json(
-      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to confirm registration" } },
-      500
-    );
-  }
-
-  logAudit({
-    action: "agent_registry_registered",
-    userId: user.userId,
-    agentId: agent.id,
-    metadata: { registryAssetId: body.registryAssetId, txSignature: body.txSignature },
-  });
-
-  return c.json({ success: true, data: { registryAssetId: body.registryAssetId } }, 201);
-});
-
-/**
- * POST /:id/update-metadata -- Update agent's on-chain metadata on the 8004 registry
+ * POST /:id/update-metadata -- Update agent's on-chain metadata on the Solana registry
  */
 agentsRouter.post("/:id/update-metadata", async (c) => {
   const user = c.get("user");

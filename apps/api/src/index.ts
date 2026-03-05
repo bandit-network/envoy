@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { health } from "./routes/health";
 import { wellKnown } from "./routes/well-known";
@@ -16,6 +17,7 @@ import { tokenRouter } from "./routes/token";
 import { publicAgentsRouter } from "./routes/public-agents";
 import { statsRouter } from "./routes/stats";
 import { organizationsRouter } from "./routes/organizations";
+import { registerRouter } from "./routes/register";
 import { authRouter } from "./routes/auth";
 import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
 import { startExpiryScanner, stopExpiryScanner } from "./services/expiry-scanner";
@@ -103,6 +105,7 @@ v1.get("/me", (c) => {
 });
 
 v1.route("/agents", agentsRouter);
+v1.route("/", registerRouter); // Mounted at root of v1 — routes define /agents/:id/register-*
 v1.route("/audit", auditRouter);
 v1.route("/platforms", platformsRouter);
 v1.route("/webhooks", webhooksRouter);
@@ -110,6 +113,42 @@ v1.route("/stats", statsRouter);
 v1.route("/organizations", organizationsRouter);
 
 app.route("/api/v1", v1);
+
+// Global error handler — always return JSON envelope
+app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    const status = err.status;
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: status === 401 ? "UNAUTHORIZED" : status === 403 ? "FORBIDDEN" : "ERROR",
+          message: err.message,
+        },
+      },
+      status
+    );
+  }
+  console.error("[api] Unhandled error:", err);
+  return c.json(
+    {
+      success: false,
+      error: { code: "INTERNAL_ERROR", message: "Internal server error" },
+    },
+    500
+  );
+});
+
+// 404 handler — always return JSON envelope
+app.notFound((c) => {
+  return c.json(
+    {
+      success: false,
+      error: { code: "NOT_FOUND", message: `Route not found: ${c.req.method} ${c.req.path}` },
+    },
+    404
+  );
+});
 
 const port = Number(process.env.API_PORT) || 3001;
 
