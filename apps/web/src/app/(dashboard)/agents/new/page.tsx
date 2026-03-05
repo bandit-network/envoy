@@ -256,20 +256,11 @@ export default function CreateAgentPage() {
 
           {/* Agent prompt — copy-pasteable instruction for any agent */}
           {(() => {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-            const prompt = `You have been assigned an Envoy identity. Use the credentials below to pair with the Envoy platform and authenticate yourself.
+            const domain = process.env.NEXT_PUBLIC_APP_URL ?? "https://useenvoy.dev";
+            const prompt = `You have been assigned an Envoy identity. Read ${domain}/skill.md and complete pairing with these credentials:
 
 ENVOY_PAIRING_ID=${createdAgent.pairing.pairingId}
-ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}
-ENVOY_API_URL=${apiBase}
-
-To complete pairing, make a POST request to:
-  ${apiBase}/api/v1/agents/pair-confirm
-
-With the JSON body:
-  { "pairingId": "<ENVOY_PAIRING_ID>", "secret": "<ENVOY_PAIRING_SECRET>" }
-
-You will receive an agent manifest token. Use this token as a Bearer token in the Authorization header for all subsequent API calls. The pairing secret expires in 10 minutes and can only be used once.`;
+ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}`;
 
             return (
               <div className="mt-4">
@@ -302,7 +293,7 @@ You will receive an agent manifest token. Use this token as a Bearer token in th
                   {prompt}
                 </pre>
                 <p className="mt-1.5 text-[12px] text-muted">
-                  Paste this into your agent&apos;s system prompt or configuration to give it an Envoy identity.
+                  Paste this into your agent&apos;s system prompt or config. The skill.md has everything it needs.
                 </p>
               </div>
             );
