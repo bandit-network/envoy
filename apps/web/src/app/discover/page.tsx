@@ -251,7 +251,7 @@ export default async function AgentDiscoveryPage({
                       )}
                       {agent.registryAssetId && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-registry/30 bg-registry/10 px-2 py-0.5 text-[11px] font-medium text-registry">
-                          8004
+                          On-Chain
                         </span>
                       )}
                       {agent.scopes.slice(0, 2).map((s) => (

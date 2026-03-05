@@ -51,7 +51,7 @@ const actionLabels: Record<string, string> = {
   pairing_confirmed: "Pairing confirmed",
   api_key_created: "API key created",
   api_key_revoked: "API key revoked",
-  agent_registry_registered: "Registered on 8004",
+  agent_registry_registered: "Registered on-chain",
 };
 
 function formatChartDate(dateStr: string): string {

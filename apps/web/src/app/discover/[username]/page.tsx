@@ -176,7 +176,7 @@ export default async function AgentPublicProfilePage({
                     d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5"
                   />
                 </svg>
-                8004 Registered
+                On-Chain
               </a>
             )}
           </div>
@@ -203,11 +203,11 @@ export default async function AgentPublicProfilePage({
             </div>
           )}
 
-          {/* 8004 Registry */}
+          {/* On-Chain Registry */}
           {agent.registryAssetId && (
             <div className="flex items-center justify-between py-3">
               <span className="text-[12px] font-medium uppercase tracking-wider text-registry">
-                8004 Asset
+                On-Chain Asset
               </span>
               <a
                 href={`https://8004market.io/asset/${agent.registryAssetId}`}

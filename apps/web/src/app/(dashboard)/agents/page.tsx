@@ -270,7 +270,7 @@ export default function AgentsPage() {
                       )}
                       {agent.registryAssetId && (
                         <div className="flex items-center gap-1 rounded-full border border-registry/30 bg-registry/10 px-1.5 py-0.5">
-                          <span className="text-[10px] font-medium text-registry">8004</span>
+                          <span className="text-[10px] font-medium text-registry">On-Chain</span>
                         </div>
                       )}
                     </div>

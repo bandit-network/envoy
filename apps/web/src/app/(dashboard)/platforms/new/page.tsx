@@ -157,7 +157,7 @@ export default function CreatePlatformPage() {
                       Require On-Chain Identity
                     </span>
                     <p className="mt-0.5 text-[12px] text-muted">
-                      When enabled, only agents with a verified Solana wallet and 8004 registry entry can authenticate with this platform
+                      When enabled, only agents with a verified Solana wallet and on-chain registry entry can authenticate with this platform
                     </p>
                   </div>
                 </label>

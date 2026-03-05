@@ -121,7 +121,7 @@ export function AgentInfoCard({ agent, isPaired }: AgentInfoCardProps) {
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium uppercase tracking-wider text-registry">8004 Registry</dt>
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-registry">On-Chain Registry</dt>
             <dd className="mt-1 flex items-center gap-1.5 font-mono text-[13px]">
               {agent.registryAssetId ? (
                 <>

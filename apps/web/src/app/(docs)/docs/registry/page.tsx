@@ -4,25 +4,24 @@ export default function RegistryPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">8004 Registry</h1>
+        <h1 className="text-3xl font-bold text-foreground">On-Chain Registry</h1>
         <p className="mt-2 text-sm text-muted">
-          On-chain AI agent registration on Solana via the 8004 standard.
+          On-chain AI agent registration on Solana.
           Make your agents discoverable and verifiable on the blockchain.
         </p>
       </div>
 
-      <Section id="what-is-8004" title="What is 8004?">
+      <Section id="what-is-onchain-registry" title="What is On-Chain Registration?">
         <Prose>
           <p>
-            <strong>8004</strong> is an open standard for registering AI agents on
-            the Solana blockchain using Metaplex Core NFTs. Each registered agent
-            gets a unique on-chain asset that stores its metadata, making it
-            publicly discoverable and cryptographically verifiable.
+            Envoy supports registering AI agents on the Solana blockchain using
+            Metaplex Core NFTs. Each registered agent gets a unique on-chain asset
+            that stores its metadata, making it publicly discoverable and
+            cryptographically verifiable.
           </p>
           <p>
-            Envoy integrates with 8004 to provide on-chain identity for agents.
-            When an agent is registered on 8004, its identity can be verified
-            by anyone using the Solana blockchain - no trust in Envoy required.
+            When an agent is registered on-chain, its identity can be verified
+            by anyone using the Solana blockchain, without requiring trust in Envoy.
           </p>
         </Prose>
 
@@ -61,7 +60,7 @@ export default function RegistryPage() {
         <Prose>
           <p>
             When <code>REGISTRY_ENABLED=true</code> is set, Envoy automatically
-            registers agents on the 8004 registry during creation. This is a
+            registers agents on-chain during creation. This is a
             non-blocking operation - if registration fails, the agent is still
             created successfully and can be registered manually later.
           </p>
@@ -87,9 +86,9 @@ export default function RegistryPage() {
 
         <EndpointCard
           method="POST"
-          path="/api/v1/agents/:id/register"
+          path="/api/v1/agents/:id/register-prepare"
           auth="Bearer"
-          description="Manually register an agent on the 8004 Solana registry."
+          description="Manually register an agent on the Solana registry."
         >
           <CodeBlock title="Prerequisites">{`- Agent must be active
 - Agent must have a wallet address
@@ -106,7 +105,7 @@ export default function RegistryPage() {
         <Prose>
           <p>
             From the dashboard, navigate to the agent detail page and click the
-            &ldquo;Register on 8004&rdquo; button. This button only appears for
+            &ldquo;Register On-Chain&rdquo; button. This button only appears for
             active agents with a wallet that aren&apos;t already registered.
           </p>
         </Prose>
@@ -117,7 +116,7 @@ export default function RegistryPage() {
           <p>
             The Envoy verify endpoint includes registry information in its
             response. When verifying an agent token, the <code>registry</code>
-            field indicates whether the agent is registered on 8004.
+            field indicates whether the agent is registered on-chain.
           </p>
         </Prose>
 
@@ -125,7 +124,7 @@ export default function RegistryPage() {
           method="POST"
           path="/api/v1/verify"
           auth="API Key"
-          description="Verify an agent token. Response includes 8004 registry status."
+          description="Verify an agent token. Response includes on-chain registry status."
         >
           <CodeBlock title="Response (registered agent)">{`{
   "success": true,
@@ -165,7 +164,7 @@ console.log("Agent metadata:", agent.uri);`}</CodeBlock>
 
         <Prose>
           <p>
-            You can also view any registered agent on the 8004 explorer by
+            You can also view any registered agent on the registry explorer by
             navigating to:
           </p>
         </Prose>
@@ -176,9 +175,9 @@ console.log("Agent metadata:", agent.uri);`}</CodeBlock>
       <Section id="public-profile" title="Public Profile Integration">
         <Prose>
           <p>
-            Agents registered on 8004 display an &ldquo;8004 Registered&rdquo;
+            Agents registered on-chain display an &ldquo;On-Chain&rdquo;
             badge on their public profile page. The badge links directly to the
-            agent&apos;s entry on 8004market.io.
+            agent&apos;s entry on the registry explorer.
           </p>
           <p>
             Public profile URL format:

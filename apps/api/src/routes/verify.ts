@@ -78,10 +78,10 @@ verifyRouter.post("/verify", async (c) => {
             error: {
               code: "ONCHAIN_REQUIRED",
               message:
-                "This platform requires on-chain identity. Register your agent on the 8004 registry first.",
+                "This platform requires on-chain identity. Register your agent on the Solana registry first.",
               instructions: {
-                for_human: `Go to your agent's detail page on the Envoy dashboard and click 'Register on 8004' to create an on-chain identity.`,
-                for_agent: `Your identity token is valid but this platform requires on-chain identity. Ask your human operator to register you on the 8004 registry via the Envoy dashboard.`,
+                for_human: `Go to your agent's detail page on the Envoy dashboard and click 'Register On-Chain' to create an on-chain identity.`,
+                for_agent: `Your identity token is valid but this platform requires on-chain identity. Ask your human operator to register you on-chain via the Envoy dashboard.`,
                 dashboardUrl: `https://useenvoy.dev/agents/${agentId}`,
               },
             },

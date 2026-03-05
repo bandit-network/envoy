@@ -13,7 +13,7 @@ const navItems = [
   { href: "/docs/sdk", label: "SDK" },
   { href: "/docs/agent-sdk", label: "Agent SDK" },
   { href: "/docs/webhooks", label: "Webhooks" },
-  { href: "/docs/registry", label: "8004 Registry" },
+  { href: "/docs/registry", label: "On-Chain Registry" },
 ];
 
 export default function DocsLayout({
