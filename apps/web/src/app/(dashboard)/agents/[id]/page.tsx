@@ -13,6 +13,9 @@ import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiPost, apiPatch, ApiError } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
 import { toast } from "sonner";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { Transaction, Connection } from "@solana/web3.js";
 
 interface Agent {
   id: string;
@@ -73,6 +76,8 @@ export default function AgentDetailPage() {
   const router = useRouter();
   const authFetch = useAuthFetch();
   const agentId = params.id as string;
+  const { publicKey, signTransaction, connected } = useWallet();
+  const { setVisible: setWalletModalVisible } = useWalletModal();
 
   const [data, setData] = useState<AgentDetailResponse | null>(null);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
@@ -134,15 +139,76 @@ export default function AgentDetailPage() {
     }
   }
 
+  const isDevnet = (process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "devnet").includes("devnet");
+
+  async function handleAirdrop() {
+    if (!publicKey) {
+      setWalletModalVisible(true);
+      return;
+    }
+    setActionLoading("airdrop");
+    try {
+      const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+      const connection = new Connection(rpcUrl, "confirmed");
+      const sig = await connection.requestAirdrop(publicKey, 0.05 * 1_000_000_000); // 0.05 SOL (~3x tx fee)
+      await connection.confirmTransaction(sig, "confirmed");
+      toast.success("Airdropped 0.05 devnet SOL to your wallet");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Airdrop failed");
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleRegisterOnChain() {
+    if (!connected || !publicKey || !signTransaction) {
+      setWalletModalVisible(true);
+      toast.error("Connect your wallet first — you'll pay the registration fee");
+      return;
+    }
+
     setActionLoading("register");
     try {
-      await apiPost(`/api/v1/agents/${agentId}/register`, {}, authFetch);
+      // Step 1: Backend prepares the unsigned transaction (uploads metadata to IPFS)
+      const prepared = await apiPost<{
+        transaction: string;
+        blockhash: string;
+        lastValidBlockHeight: number;
+        assetPubkey: string;
+      }>(`/api/v1/agents/${agentId}/register/prepare`, {
+        humanWalletAddress: publicKey.toBase58(),
+      }, authFetch);
+
+      // Step 2: Deserialize and sign with the human's wallet
+      const tx = Transaction.from(Buffer.from(prepared.transaction, "base64"));
+      const signedTx = await signTransaction(tx);
+
+      // Step 3: Send the signed transaction to Solana
+      const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL ?? "https://api.devnet.solana.com";
+      const connection = new Connection(rpcUrl, "confirmed");
+      const txSignature = await connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      });
+
+      // Step 4: Wait for confirmation
+      await connection.confirmTransaction({
+        signature: txSignature,
+        blockhash: prepared.blockhash,
+        lastValidBlockHeight: prepared.lastValidBlockHeight,
+      }, "confirmed");
+
+      // Step 5: Tell the backend to store the asset ID
+      await apiPost(`/api/v1/agents/${agentId}/register/confirm`, {
+        registryAssetId: prepared.assetPubkey,
+        txSignature,
+      }, authFetch);
+
       toast.success("Agent registered on 8004 registry");
       await loadAgent();
     } catch (err) {
       const message =
-        err instanceof ApiError ? err.message : "Failed to register on-chain";
+        err instanceof ApiError ? err.message : (err instanceof Error ? err.message : "Failed to register on-chain");
       toast.error(message);
     } finally {
       setActionLoading(null);
@@ -246,15 +312,26 @@ export default function AgentDetailPage() {
               </Button>
             )}
             {agent.walletAddress && !agent.registryAssetId && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRegisterOnChain}
-                loading={actionLoading === "register"}
-                className="border-registry/30 text-registry hover:bg-registry/10"
-              >
-                Register on 8004
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRegisterOnChain}
+                  loading={actionLoading === "register"}
+                  className="border-registry/30 text-registry hover:bg-registry/10"
+                >
+                  Register on 8004
+                </Button>
+                {isDevnet && (
+                  <button
+                    onClick={handleAirdrop}
+                    disabled={actionLoading === "airdrop"}
+                    className="text-[11px] text-muted underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                  >
+                    {actionLoading === "airdrop" ? "Airdropping..." : "Get devnet SOL"}
+                  </button>
+                )}
+              </>
             )}
             {agent.registryAssetId && (
               <Button

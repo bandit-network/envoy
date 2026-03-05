@@ -211,6 +211,145 @@ export async function registerAgentOnChain(
 }
 
 /**
+ * Prepare an unsigned registration transaction for client-side signing.
+ *
+ * The human operator's wallet pays the transaction fee. Flow:
+ * 1. Upload metadata to IPFS (server-side, needs PINATA_JWT)
+ * 2. Build registration transaction with skipSend: true
+ * 3. Return serialized unsigned transaction for the frontend to sign
+ *
+ * Returns null if registry is disabled or preparation fails.
+ */
+export async function prepareRegistrationTx(
+  agentId: string,
+  agentName: string,
+  agentDescription: string,
+  walletAddress: string,
+  humanWalletAddress: string,
+  imageUrl?: string | null,
+  username?: string | null
+): Promise<{
+  transaction: string;
+  blockhash: string;
+  lastValidBlockHeight: number;
+  assetPubkey: string;
+} | null> {
+  if (!REGISTRY_ENABLED) {
+    return null;
+  }
+
+  try {
+    const sdk = getRegistrySDK(false);
+    if (!sdk) return null;
+
+    const image =
+      imageUrl || `https://api.dicebear.com/9.x/identicon/svg?seed=${agentId}`;
+
+    const metadata: Record<string, unknown> = {
+      name: agentName,
+      description: agentDescription || `AI agent registered via Envoy`,
+      image,
+      properties: {
+        envoy_agent_id: agentId,
+        wallet_address: walletAddress,
+        platform: "envoy",
+        registered_at: new Date().toISOString(),
+        ...(username ? { username } : {}),
+      },
+    };
+
+    // Upload metadata to IPFS (server-side — needs PINATA_JWT)
+    let metadataUri: string | null = await uploadToPinataDirect(metadata);
+    if (!metadataUri) {
+      const ipfs = getIPFSClient();
+      if (!ipfs) {
+        console.warn("[registry] PINATA_JWT not set — cannot upload metadata");
+        return null;
+      }
+      metadataUri = await ipfs.addJson(metadata);
+    }
+
+    // Generate asset keypair — the public key becomes the on-chain asset ID
+    const assetKeypair = Keypair.generate();
+    const humanPubkey = new (await import("@solana/web3.js")).PublicKey(humanWalletAddress);
+
+    // Build transaction without sending — human wallet pays fees
+    const result = await sdk.registerAgent(metadataUri, {
+      collectionPointer: REGISTRY_COLLECTION_POINTER,
+      skipSend: true,
+      feePayer: humanPubkey,
+      assetPubkey: assetKeypair.publicKey,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    // When skipSend is true, result is a PreparedTransaction
+    const prepared = result as unknown as {
+      transaction: string;
+      blockhash: string;
+      lastValidBlockHeight: number;
+      signer: string;
+    };
+
+    if (!prepared.transaction) {
+      console.error("[registry] Failed to build unsigned transaction");
+      return null;
+    }
+
+    // The asset keypair also needs to sign (it's a signer in the instruction).
+    // Partially sign with the asset keypair, return for human to co-sign.
+    const { Transaction } = await import("@solana/web3.js");
+    const tx = Transaction.from(Buffer.from(prepared.transaction, "base64"));
+    tx.partialSign(assetKeypair);
+
+    // Also partial-sign with the server signer if needed (it's the "owner" in the instruction)
+    if (REGISTRY_SIGNER_PRIVATE_KEY) {
+      const serverSigner = Keypair.fromSecretKey(bs58.decode(REGISTRY_SIGNER_PRIVATE_KEY));
+      tx.partialSign(serverSigner);
+    }
+
+    const serialized = tx.serialize({ requireAllSignatures: false }).toString("base64");
+
+    console.log(
+      `[registry] Prepared registration tx for agent ${agentId}, asset ${assetKeypair.publicKey.toBase58()}`
+    );
+
+    return {
+      transaction: serialized,
+      blockhash: prepared.blockhash,
+      lastValidBlockHeight: prepared.lastValidBlockHeight,
+      assetPubkey: assetKeypair.publicKey.toBase58(),
+    };
+  } catch (err) {
+    console.error(
+      "[registry] Failed to prepare registration tx:",
+      err instanceof Error ? err.message : err
+    );
+    return null;
+  }
+}
+
+/**
+ * Confirm on-chain registration after the human has signed and sent the transaction.
+ * Stores the asset ID on the agent record.
+ */
+export async function confirmRegistration(
+  agentId: string,
+  registryAssetId: string
+): Promise<boolean> {
+  try {
+    await db
+      .update(agents)
+      .set({ registryAssetId })
+      .where(eq(agents.id, agentId));
+    console.log(`[registry] Confirmed registration for agent ${agentId} → ${registryAssetId}`);
+    return true;
+  } catch (err) {
+    console.error("[registry] Failed to confirm registration:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
+/**
  * Update an agent's on-chain metadata on the 8004 Solana registry.
  *
  * Called when agent metadata (name, avatar, username) changes.

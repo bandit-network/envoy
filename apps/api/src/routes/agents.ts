@@ -9,7 +9,7 @@ import { issueManifest, refreshManifest } from "../services/manifest";
 import { createPairing } from "../services/pairing";
 import { deliverWebhook } from "../services/webhook";
 import { provisionWallet } from "../services/wallet";
-import { registerAgentOnChain, updateAgentMetadataOnChain, createEnvoyCollection } from "../services/registry";
+import { registerAgentOnChain, updateAgentMetadataOnChain, createEnvoyCollection, prepareRegistrationTx, confirmRegistration } from "../services/registry";
 import { getOrgAccess } from "../lib/org-access";
 
 export const agentsRouter = new Hono<AuthEnv>();
@@ -86,22 +86,6 @@ agentsRouter.post("/", async (c) => {
     ? { ...agent, walletAddress }
     : agent;
 
-  // Register on 8004 registry (async, never blocks agent creation)
-  let registryAssetId: string | null = null;
-  if (walletAddress) {
-    registryAssetId = await registerAgentOnChain(
-      agent.id,
-      agent.name,
-      agent.description ?? "",
-      walletAddress,
-      agent.avatarUrl,
-      agent.username
-    );
-    if (registryAssetId) {
-      agentData = { ...agentData, registryAssetId };
-    }
-  }
-
   // Auto-generate pairing credentials so the human can immediately
   // hand them to the agent runtime — no extra step required.
   let pairing: { pairingId: string; pairingSecret: string; expiresAt: Date } | null = null;
@@ -117,17 +101,8 @@ agentsRouter.post("/", async (c) => {
     action: "agent_created",
     userId: user.userId,
     agentId: agent.id,
-    metadata: { name, walletAddress, registryAssetId },
+    metadata: { name, walletAddress },
   });
-
-  if (registryAssetId) {
-    logAudit({
-      action: "agent_registry_registered",
-      userId: user.userId,
-      agentId: agent.id,
-      metadata: { registryAssetId },
-    });
-  }
 
   return c.json({
     success: true,
@@ -572,6 +547,124 @@ agentsRouter.post("/:id/register", async (c) => {
     success: true,
     data: { registryAssetId },
   }, 201);
+});
+
+/**
+ * POST /:id/register/prepare -- Prepare unsigned registry tx for client-side signing
+ *
+ * Human-pays model: the server uploads metadata to IPFS and builds
+ * the transaction, but the human's wallet signs and pays the SOL fee.
+ */
+agentsRouter.post("/:id/register/prepare", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  const agent = await db.query.agents.findFirst({
+    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
+  });
+
+  if (!agent) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
+      404
+    );
+  }
+
+  if (agent.status !== "active") {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must be active to register on-chain" } },
+      400
+    );
+  }
+
+  if (!agent.walletAddress) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must have a wallet address" } },
+      400
+    );
+  }
+
+  if (agent.registryAssetId) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent is already registered on-chain" } },
+      400
+    );
+  }
+
+  // Human's connected wallet address (fee payer)
+  const body = await c.req.json<{ humanWalletAddress: string }>().catch(() => ({ humanWalletAddress: "" }));
+  if (!body.humanWalletAddress) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "humanWalletAddress is required" } },
+      400
+    );
+  }
+
+  const prepared = await prepareRegistrationTx(
+    agent.id,
+    agent.name,
+    agent.description ?? "",
+    agent.walletAddress,
+    body.humanWalletAddress,
+    agent.avatarUrl,
+    agent.username
+  );
+
+  if (!prepared) {
+    return c.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to prepare registration transaction" } },
+      500
+    );
+  }
+
+  return c.json({
+    success: true,
+    data: prepared,
+  });
+});
+
+/**
+ * POST /:id/register/confirm -- Confirm on-chain registration after human signed + sent tx
+ */
+agentsRouter.post("/:id/register/confirm", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  const agent = await db.query.agents.findFirst({
+    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
+  });
+
+  if (!agent) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
+      404
+    );
+  }
+
+  const body = await c.req.json<{ registryAssetId: string; txSignature: string }>().catch(() => ({ registryAssetId: "", txSignature: "" }));
+  if (!body.registryAssetId) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "registryAssetId is required" } },
+      400
+    );
+  }
+
+  const confirmed = await confirmRegistration(agentId, body.registryAssetId);
+  if (!confirmed) {
+    return c.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to confirm registration" } },
+      500
+    );
+  }
+
+  logAudit({
+    action: "agent_registry_registered",
+    userId: user.userId,
+    agentId: agent.id,
+    metadata: { registryAssetId: body.registryAssetId, txSignature: body.txSignature },
+  });
+
+  return c.json({ success: true, data: { registryAssetId: body.registryAssetId } }, 201);
 });
 
 /**
