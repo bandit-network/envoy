@@ -27,9 +27,11 @@ interface AgentInfoCardProps {
     createdAt: string;
     revokedAt: string | null;
   };
+  /** Whether the agent has an active (non-revoked) manifest */
+  isPaired?: boolean;
 }
 
-export function AgentInfoCard({ agent }: AgentInfoCardProps) {
+export function AgentInfoCard({ agent, isPaired }: AgentInfoCardProps) {
   const [imgError, setImgError] = useState(false);
   const avatarSrc = getAgentAvatarUrl(agent.id, agent.avatarUrl);
   const status = statusConfig[agent.status] ?? { variant: "muted" as const, label: agent.status, dot: "bg-muted" };
@@ -61,11 +63,31 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
                   <p className="mt-0.5 text-[13px] text-muted">@{agent.username}</p>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
-                <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                <span className="text-[12px] font-medium text-foreground capitalize">
-                  {status.label}
-                </span>
+              <div className="flex items-center gap-2">
+                {isPaired !== undefined && (
+                  <div className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+                    isPaired
+                      ? "border-accent/30 bg-accent/5"
+                      : "border-border"
+                  }`}>
+                    <svg className={`h-3 w-3 ${isPaired ? "text-accent" : "text-muted"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      {isPaired ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17H7A5 5 0 0 1 7 7h2m6 0h2a5 5 0 0 1 0 10h-2M8 12h8" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17H7A5 5 0 0 1 7 7h2m6 0h2a5 5 0 0 1 0 10h-2" />
+                      )}
+                    </svg>
+                    <span className={`text-[12px] font-medium ${isPaired ? "text-accent" : "text-muted"}`}>
+                      {isPaired ? "Paired" : "Unpaired"}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                  <span className="text-[12px] font-medium text-foreground capitalize">
+                    {status.label}
+                  </span>
+                </div>
               </div>
             </div>
             {agent.description && (
@@ -99,16 +121,16 @@ export function AgentInfoCard({ agent }: AgentInfoCardProps) {
             </dd>
           </div>
           <div>
-            <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">8004 Registry</dt>
+            <dt className="text-[12px] font-medium uppercase tracking-wider text-registry">8004 Registry</dt>
             <dd className="mt-1 flex items-center gap-1.5 font-mono text-[13px]">
               {agent.registryAssetId ? (
                 <>
-                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-registry" />
                   <a
                     href={`https://8004market.io/asset/${agent.registryAssetId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-foreground transition-colors hover:text-accent"
+                    className="text-foreground transition-colors hover:text-registry"
                   >
                     {truncateId(agent.registryAssetId)}
                   </a>

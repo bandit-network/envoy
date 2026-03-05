@@ -35,10 +35,22 @@ function UserIcon({ className }: { className?: string }) {
   );
 }
 
-function CpuIcon({ className }: { className?: string }) {
+function LobsterIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 6.75h10.5v10.5H6.75V6.75z" />
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      {/* Antennae */}
+      <path d="M8 4C6.5 2.5 4 2 2 3" />
+      <path d="M16 4C17.5 2.5 20 2 22 3" />
+      {/* Head / body */}
+      <ellipse cx="12" cy="8" rx="4" ry="3" />
+      {/* Claws */}
+      <path d="M8 7C6 6 4 6.5 3.5 8C3 9.5 4 10.5 5.5 10L8 9" />
+      <path d="M16 7C18 6 20 6.5 20.5 8C21 9.5 20 10.5 18.5 10L16 9" />
+      {/* Tail segments */}
+      <path d="M9 11C9 11 8.5 13 9 14.5C9.5 16 10.5 17 12 17C13.5 17 14.5 16 15 14.5C15.5 13 15 11 15 11" />
+      <path d="M10 17L9 20M12 17V20M14 17L15 20" />
+      {/* Tail fan */}
+      <path d="M8 20C9 21 11 21.5 12 21.5C13 21.5 15 21 16 20" />
     </svg>
   );
 }
@@ -140,7 +152,7 @@ const entities = [
     sublabel: "Runtime",
     description:
       "Carries signed manifests. Presents tokens to platforms. Cannot self-issue or escalate permissions.",
-    icon: <CpuIcon className="h-5 w-5" />,
+    icon: <LobsterIcon className="h-5 w-5" />,
   },
   {
     label: "Platform",
@@ -304,6 +316,29 @@ export default function Home() {
               Documentation
             </Link>
           </div>
+
+          {/* Powered by Solana Agent Registry */}
+          <a
+            href="https://solana.com/agent-registry"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-registry/20 bg-registry/5 px-4 py-2 text-[12px] font-medium text-registry transition-colors hover:border-registry/40 hover:bg-registry/10"
+          >
+            <span className="text-muted">Powered by</span>
+            {/* Solana logo mark — three tilted bars */}
+            <svg className="h-3 w-3" viewBox="0 0 398 398" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <linearGradient id="solGrad1" x1="360" y1="10" x2="40" y2="390" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#00FFA3" />
+                <stop offset="1" stopColor="#DC1FFF" />
+              </linearGradient>
+              <path d="M64.6 326.8c3.1-3.1 7.4-4.9 11.8-4.9h298.7c7.5 0 11.2 9 5.9 14.3l-57.5 57.5c-3.1 3.1-7.4 4.9-11.8 4.9H12.9c-7.5 0-11.2-9-5.9-14.3l57.5-57.5z" fill="url(#solGrad1)" />
+              <path d="M64.6 3.8C67.8.6 72 0 76.4 0h298.7c7.5 0 11.2 9 5.9 14.3l-57.5 57.5c-3.1 3.1-7.4 4.9-11.8 4.9H12.9c-7.5 0-11.2-9-5.9-14.3L64.6 3.8z" fill="url(#solGrad1)" />
+              <path d="M333.5 165.9c-3.1-3.1-7.4-4.9-11.8-4.9H22.9c-7.5 0-11.2 9-5.9 14.3l57.5 57.5c3.1 3.1 7.4 4.9 11.8 4.9h298.7c7.5 0 11.2-9 5.9-14.3l-57.5-57.5z" fill="url(#solGrad1)" />
+            </svg>
+            <span>Solana</span>
+            <span className="h-3 w-px bg-registry/30" />
+            <span>Agent Registry</span>
+          </a>
         </div>
 
         {/* SDK Code Snippets */}
@@ -320,7 +355,7 @@ export default function Home() {
                 }`}
               >
                 <span className="flex items-center justify-center gap-2">
-                  <CpuIcon className="h-3.5 w-3.5" />
+                  <LobsterIcon className="h-3.5 w-3.5" />
                   For Agents
                 </span>
               </button>

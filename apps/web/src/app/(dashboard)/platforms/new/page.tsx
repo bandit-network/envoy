@@ -19,6 +19,7 @@ export default function CreatePlatformPage() {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [requireOnchain, setRequireOnchain] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +35,7 @@ export default function CreatePlatformPage() {
           name: name.trim(),
           domain: domain.trim(),
           ...(webhookUrl.trim() ? { webhookUrl: webhookUrl.trim() } : {}),
+          requireOnchainIdentity: requireOnchain,
         },
         authFetch
       );
@@ -131,6 +133,34 @@ export default function CreatePlatformPage() {
                 <p className="mt-1 text-[12px] text-muted">
                   Receive real-time revocation notifications
                 </p>
+              </div>
+            </div>
+
+            <div className="border-t border-border" />
+
+            <div>
+              <h3 className="text-[13px] font-medium uppercase tracking-wider text-muted">Requirements</h3>
+              <div className="mt-4">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <div className="relative mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={requireOnchain}
+                      onChange={(e) => setRequireOnchain(e.target.checked)}
+                      className="peer sr-only"
+                    />
+                    <div className="h-5 w-9 rounded-full bg-border transition-colors peer-checked:bg-registry" />
+                    <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-foreground transition-transform peer-checked:translate-x-4" />
+                  </div>
+                  <div>
+                    <span className="text-[13px] font-medium text-foreground">
+                      Require On-Chain Identity
+                    </span>
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      When enabled, only agents with a verified Solana wallet and 8004 registry entry can authenticate with this platform
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 

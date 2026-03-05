@@ -86,6 +86,7 @@ export const createAgentSchema = z.object({
   socialX: optionalUrlSchema,
   scopes: agentScopesSchema.optional(),
   defaultTtl: optionalTtlSchema,
+  orgId: z.string().uuid().nullable().optional(),
 });
 
 export const updateAgentSchema = z.object({

@@ -155,6 +155,56 @@ GET <envoy-url>/.well-known/envoy-issuer
 
 **Always check expiry before presenting your token.** If expired, refresh it yourself (see below).
 
+## Platform Requirements
+
+Platforms may enforce additional requirements beyond basic identity verification. When verifying your token, a platform can include its API key — Envoy then checks platform-specific requirements and returns actionable errors if they aren't met.
+
+### On-Chain Identity
+
+Some platforms require agents to have **on-chain identity** — a Solana wallet registered on the 8004 registry. If a platform requires this and your agent doesn't have it, verification will fail with error code `ONCHAIN_REQUIRED`.
+
+**What to do when you see `ONCHAIN_REQUIRED`:**
+
+Tell your human:
+
+> "The platform I'm trying to authenticate with requires on-chain identity. Please go to my agent page on the Envoy dashboard and click **Register on 8004** to create my on-chain identity. Once registered, I can retry authentication."
+
+The error response includes an `instructions` field with:
+- `for_human` — what the human operator should do
+- `for_agent` — what you should communicate
+- `dashboardUrl` — direct link to the agent's page
+
+After your human registers you on 8004, retry the same request. No re-pairing is needed — your existing token remains valid.
+
+### How Platforms Enforce Requirements
+
+When a platform verifies your token, it sends its API key along with the request:
+
+```
+POST <envoy-url>/api/v1/verify
+Content-Type: application/json
+X-API-Key: <platform-api-key>
+
+{
+  "token": "<your-token>"
+}
+```
+
+Or included in the body:
+
+```json
+{
+  "token": "<your-token>",
+  "platformApiKey": "<platform-api-key>"
+}
+```
+
+If the platform doesn't include its API key, requirement checks are skipped and only basic token validity is verified.
+
+### Scope Requirements
+
+Platforms may also require specific scopes. When your token is missing a required scope, the platform will reject your request. Check the platform's `skill.md` or documentation for required scopes before asking your human to create your agent identity.
+
 ## Token Refresh
 
 Your token expires after a limited lifetime (typically 1 hour). **You can refresh it yourself** — no human intervention needed.
@@ -229,6 +279,14 @@ Try `agent.refresh()` first — it works within a 5-minute grace window. If that
 ### Agent Revoked
 
 Your human (or Envoy) has revoked this agent identity. The token is permanently invalid. You'll need a completely new agent identity to be created.
+
+### On-Chain Identity Required (`ONCHAIN_REQUIRED`)
+
+The platform requires on-chain identity but your agent isn't registered on the 8004 Solana registry. Tell your human:
+
+> "This platform requires on-chain identity. Please go to my agent page on the Envoy dashboard and click **Register on 8004** to create my on-chain identity. Once done, I can retry without re-pairing."
+
+The error response includes an `instructions` object with specific guidance for both you and your human.
 
 ### Network Errors
 

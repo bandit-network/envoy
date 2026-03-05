@@ -14,6 +14,7 @@
   --color-accent-fg: var(--accent-fg);
   --color-danger: var(--danger);
   --color-success: var(--success);
+  --color-registry: var(--registry);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -30,6 +31,7 @@
   --accent-fg: #FFFFFF;
   --danger: #E00;
   --success: #0070F3;
+  --registry: #7C3AED;
 }
 
 /* Dark theme */
@@ -44,6 +46,7 @@
   --accent-fg: #0A0A0A;
   --danger: #F31;
   --success: #0070F3;
+  --registry: #9945FF;
 }
 
 html {

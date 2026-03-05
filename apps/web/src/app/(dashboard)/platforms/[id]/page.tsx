@@ -265,14 +265,14 @@ export default function PlatformDetailPage() {
                 </dd>
               </div>
               <div className="py-3">
-                <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">
+                <dt className="text-[12px] font-medium uppercase tracking-wider text-registry">
                   On-Chain Identity
                 </dt>
                 <dd className="mt-0.5 flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${
-                        platform.requireOnchainIdentity ? "bg-success" : "bg-border"
+                        platform.requireOnchainIdentity ? "bg-registry" : "bg-border"
                       }`}
                     />
                     <span className="text-[13px] text-foreground">
@@ -283,7 +283,7 @@ export default function PlatformDetailPage() {
                     <button
                       type="button"
                       onClick={handleToggleOnchain}
-                      className="text-[12px] font-medium text-accent transition-colors hover:text-accent/80"
+                      className="text-[12px] font-medium text-registry transition-colors hover:text-registry/80"
                     >
                       {platform.requireOnchainIdentity ? "Disable" : "Enable"}
                     </button>

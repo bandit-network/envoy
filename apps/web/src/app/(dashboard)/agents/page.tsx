@@ -31,6 +31,8 @@ interface AgentRow {
   avatarUrl: string | null;
   scopes?: string[];
   status: string;
+  isPaired?: boolean;
+  registryAssetId?: string | null;
   createdAt: string;
 }
 
@@ -239,7 +241,7 @@ export default function AgentsPage() {
                     </p>
                   )}
 
-                  {/* Footer: Status + Scopes + Date */}
+                  {/* Footer: Status + Paired + Date */}
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5">
@@ -248,6 +250,29 @@ export default function AgentsPage() {
                           {agent.status}
                         </span>
                       </div>
+                      {agent.isPaired !== undefined && (
+                        <div className={`flex items-center gap-1 rounded-full border px-1.5 py-0.5 ${
+                          agent.isPaired
+                            ? "border-accent/30 bg-accent/5"
+                            : "border-border"
+                        }`}>
+                          <svg className={`h-2.5 w-2.5 ${agent.isPaired ? "text-accent" : "text-muted"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {agent.isPaired ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17H7A5 5 0 0 1 7 7h2m6 0h2a5 5 0 0 1 0 10h-2M8 12h8" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17H7A5 5 0 0 1 7 7h2m6 0h2a5 5 0 0 1 0 10h-2" />
+                            )}
+                          </svg>
+                          <span className={`text-[10px] font-medium ${agent.isPaired ? "text-accent" : "text-muted"}`}>
+                            {agent.isPaired ? "Paired" : "Unpaired"}
+                          </span>
+                        </div>
+                      )}
+                      {agent.registryAssetId && (
+                        <div className="flex items-center gap-1 rounded-full border border-registry/30 bg-registry/10 px-1.5 py-0.5">
+                          <span className="text-[10px] font-medium text-registry">8004</span>
+                        </div>
+                      )}
                     </div>
                     <span className="text-[12px] text-muted">
                       {formatDate(agent.createdAt)}

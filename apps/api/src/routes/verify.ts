@@ -1,12 +1,17 @@
 import { Hono } from "hono";
 import { verifyTokenSchema } from "@envoy/types";
+import { db, platforms } from "@envoy/db";
+import { eq } from "drizzle-orm";
 import { verifyManifestToken } from "../lib/verifier";
+import { verifyApiKey } from "../services/platform";
 
 export const verifyRouter = new Hono();
 
 /**
  * POST /api/v1/verify
  * Public endpoint (no auth). Called by platforms to verify agent tokens.
+ * When a platform API key is provided (body or X-API-Key header),
+ * platform-specific requirements (e.g. on-chain identity) are enforced.
  */
 verifyRouter.post("/verify", async (c) => {
   let body: unknown;
@@ -49,6 +54,53 @@ verifyRouter.post("/verify", async (c) => {
       },
       401
     );
+  }
+
+  // ── Platform requirement enforcement ──────────────────────────
+  // Resolve platform API key from body or X-API-Key header
+  const apiKey = parsed.data.platformApiKey ?? c.req.header("X-API-Key");
+
+  if (apiKey) {
+    const keyResult = await verifyApiKey(apiKey);
+
+    if (keyResult.valid && keyResult.platformId) {
+      const platform = await db.query.platforms.findFirst({
+        where: eq(platforms.id, keyResult.platformId),
+        columns: { requireOnchainIdentity: true },
+      });
+
+      // Check on-chain identity requirement
+      if (platform?.requireOnchainIdentity && !result.onchainIdentity.verified) {
+        const agentId = result.manifest?.agent_id ?? "unknown";
+        return c.json(
+          {
+            success: false,
+            error: {
+              code: "ONCHAIN_REQUIRED",
+              message:
+                "This platform requires on-chain identity. Register your agent on the 8004 registry first.",
+              instructions: {
+                for_human: `Go to your agent's detail page on the Envoy dashboard and click 'Register on 8004' to create an on-chain identity.`,
+                for_agent: `Your identity token is valid but this platform requires on-chain identity. Ask your human operator to register you on the 8004 registry via the Envoy dashboard.`,
+                dashboardUrl: `https://useenvoy.dev/agents/${agentId}`,
+              },
+            },
+            data: {
+              valid: true,
+              manifest: result.manifest,
+              revoked: false,
+              expired: false,
+              scopes: result.scopes,
+              onchainIdentity: result.onchainIdentity,
+              registry: result.registry,
+            },
+          },
+          403
+        );
+      }
+    }
+    // If API key is invalid, we still return the verification result
+    // (platform key is optional — bad key doesn't block verification)
   }
 
   return c.json({

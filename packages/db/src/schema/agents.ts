@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, timestamp, pgEnum, jsonb, integer } from "drizzle-orm/pg-core";
 import { users } from "./users";
+import { organizations } from "./organizations";
 
 export const agentStatusEnum = pgEnum("agent_status", [
   "active",
@@ -21,6 +22,7 @@ export const agents = pgTable("agents", {
   scopes: jsonb("scopes").$type<string[]>().default(["api_access"]).notNull(),
   defaultTtl: integer("default_ttl"),
   status: agentStatusEnum("status").default("active").notNull(),
+  orgId: uuid("org_id").references(() => organizations.id),
   walletAddress: text("wallet_address"),
   registryAssetId: text("registry_asset_id"),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
