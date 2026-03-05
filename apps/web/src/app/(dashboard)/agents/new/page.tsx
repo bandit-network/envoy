@@ -93,7 +93,7 @@ export default function CreateAgentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgent, setCreatedAgent] = useState<CreateAgentResponse | null>(null);
-  const [copied, setCopied] = useState<"id" | "secret" | null>(null);
+  const [copied, setCopied] = useState<"id" | "secret" | "prompt" | null>(null);
 
   const loadOrgs = useCallback(async () => {
     try {
@@ -162,7 +162,7 @@ export default function CreateAgentPage() {
     );
   }
 
-  async function copyToClipboard(text: string, field: "id" | "secret") {
+  async function copyToClipboard(text: string, field: "id" | "secret" | "prompt") {
     await navigator.clipboard.writeText(text);
     setCopied(field);
     setTimeout(() => setCopied(null), 2000);
@@ -253,6 +253,60 @@ export default function CreateAgentPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Agent prompt — copy-pasteable instruction for any agent */}
+          {(() => {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+            const prompt = `You have been assigned an Envoy identity. Use the credentials below to pair with the Envoy platform and authenticate yourself.
+
+ENVOY_PAIRING_ID=${createdAgent.pairing.pairingId}
+ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}
+ENVOY_API_URL=${apiBase}
+
+To complete pairing, make a POST request to:
+  ${apiBase}/api/v1/agents/pair-confirm
+
+With the JSON body:
+  { "pairingId": "<ENVOY_PAIRING_ID>", "secret": "<ENVOY_PAIRING_SECRET>" }
+
+You will receive an agent manifest token. Use this token as a Bearer token in the Authorization header for all subsequent API calls. The pairing secret expires in 10 minutes and can only be used once.`;
+
+            return (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[13px] font-medium text-foreground">
+                    Agent Prompt
+                  </p>
+                  <button
+                    onClick={() => copyToClipboard(prompt, "prompt")}
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
+                  >
+                    {copied === "prompt" ? (
+                      <>
+                        <svg className="h-3.5 w-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                        </svg>
+                        Copy Prompt
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="rounded-lg border border-border bg-elevated px-4 py-3 font-mono text-[12px] text-muted leading-relaxed whitespace-pre-wrap break-all">
+                  {prompt}
+                </pre>
+                <p className="mt-1.5 text-[12px] text-muted">
+                  Paste this into your agent&apos;s system prompt or configuration to give it an Envoy identity.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Action buttons */}
           <div className="mt-6 flex items-center justify-center gap-3">
