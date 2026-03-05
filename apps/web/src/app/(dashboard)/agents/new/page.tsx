@@ -321,7 +321,7 @@ export default function CreateAgentPage() {
                         id="username"
                         placeholder="trading-bot"
                         value={username}
-                        onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
                         maxLength={39}
                         className="pl-7"
                       />

@@ -174,7 +174,7 @@ export function EditAgentDialog({ agent, onSaved }: EditAgentDialogProps) {
                 <Input
                   id="edit-username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
                   maxLength={39}
                   className="pl-7"
                 />
