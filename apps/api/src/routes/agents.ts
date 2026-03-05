@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { db, agents, manifests, revocations, auditLogs } from "@envoy/db";
+import { db, agents, manifests, revocations, auditLogs, orgMembers } from "@envoy/db";
 import { createAgentSchema, updateAgentSchema, issueManifestSchema } from "@envoy/types";
-import { eq, and, desc, isNull, count } from "drizzle-orm";
+import { eq, and, desc, isNull, count, or, inArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import type { AuthEnv } from "../middleware/auth";
 import { logAudit } from "../services/audit";
@@ -9,7 +9,8 @@ import { issueManifest, refreshManifest } from "../services/manifest";
 import { createPairing } from "../services/pairing";
 import { deliverWebhook } from "../services/webhook";
 import { provisionWallet } from "../services/wallet";
-import { registerAgentOnChain } from "../services/registry";
+import { registerAgentOnChain, updateAgentMetadataOnChain, createEnvoyCollection } from "../services/registry";
+import { getOrgAccess } from "../lib/org-access";
 
 export const agentsRouter = new Hono<AuthEnv>();
 
@@ -28,7 +29,18 @@ agentsRouter.post("/", async (c) => {
   }
 
   const user = c.get("user");
-  const { name, description, username, avatarUrl, socialMoltbook, socialX, scopes, defaultTtl } = parsed.data;
+  const { name, description, username, avatarUrl, socialMoltbook, socialX, scopes, defaultTtl, orgId } = parsed.data;
+
+  // Validate org membership if orgId is provided
+  if (orgId) {
+    const access = await getOrgAccess(user.userId, orgId);
+    if (!access.canWrite) {
+      return c.json(
+        { success: false, error: { code: "FORBIDDEN", message: "You don't have write access to this organization" } },
+        403
+      );
+    }
+  }
 
   let agent;
   try {
@@ -44,6 +56,7 @@ agentsRouter.post("/", async (c) => {
         socialX: socialX ?? null,
         ...(scopes ? { scopes } : {}),
         ...(defaultTtl !== undefined ? { defaultTtl: defaultTtl ?? null } : {}),
+        ...(orgId ? { orgId } : {}),
       })
       .returning();
     agent = inserted;
@@ -79,7 +92,9 @@ agentsRouter.post("/", async (c) => {
       agent.id,
       agent.name,
       agent.description ?? "",
-      walletAddress
+      walletAddress,
+      agent.avatarUrl,
+      agent.username
     );
     if (registryAssetId) {
       agentData = { ...agentData, registryAssetId };
@@ -131,7 +146,20 @@ agentsRouter.get("/", async (c) => {
   const limit = Math.min(Number(c.req.query("limit")) || 50, 100);
   const offset = Number(c.req.query("offset")) || 0;
 
-  const conditions = [eq(agents.ownerId, user.userId)];
+  // Get org IDs the user belongs to
+  const userOrgMemberships = await db
+    .select({ orgId: orgMembers.orgId })
+    .from(orgMembers)
+    .where(eq(orgMembers.userId, user.userId));
+  const userOrgIds = userOrgMemberships.map((m) => m.orgId);
+
+  // Include agents owned by user OR belonging to user's orgs
+  const ownershipCondition =
+    userOrgIds.length > 0
+      ? or(eq(agents.ownerId, user.userId), inArray(agents.orgId, userOrgIds))!
+      : eq(agents.ownerId, user.userId);
+
+  const conditions = [ownershipCondition];
   if (status && ["active", "suspended", "revoked"].includes(status)) {
     conditions.push(eq(agents.status, status as "active" | "suspended" | "revoked"));
   }
@@ -152,10 +180,21 @@ agentsRouter.get("/", async (c) => {
       .where(where),
   ]);
 
+  // Determine paired status: agent has at least one active (non-revoked) manifest
+  const agentIds = agentList.map((a) => a.id);
+  let pairedAgentIds: Set<string> = new Set();
+  if (agentIds.length > 0) {
+    const pairedRows = await db
+      .selectDistinct({ agentId: manifests.agentId })
+      .from(manifests)
+      .where(and(inArray(manifests.agentId, agentIds), isNull(manifests.revokedAt)));
+    pairedAgentIds = new Set(pairedRows.map((r) => r.agentId));
+  }
+
   return c.json({
     success: true,
     data: {
-      agents: agentList,
+      agents: agentList.map((a) => ({ ...a, isPaired: pairedAgentIds.has(a.id) })),
       total: totalRow?.total ?? 0,
       limit,
       offset,
@@ -171,10 +210,20 @@ agentsRouter.get("/:id", async (c) => {
   const agentId = c.req.param("id");
 
   const agent = await db.query.agents.findFirst({
-    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
+    where: eq(agents.id, agentId),
   });
 
   if (!agent) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
+      404
+    );
+  }
+
+  // Check access: owner or org member
+  const isOwner = agent.ownerId === user.userId;
+  const hasOrgAccess = agent.orgId ? (await getOrgAccess(user.userId, agent.orgId)).member : false;
+  if (!isOwner && !hasOrgAccess) {
     return c.json(
       { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
       404
@@ -285,6 +334,39 @@ agentsRouter.patch("/:id", async (c) => {
     agentId,
     metadata: { changes: parsed.data },
   });
+
+  // Auto-sync on-chain metadata if relevant fields changed and agent is registered
+  const metadataFieldsChanged = [
+    "name", "description", "avatarUrl", "username",
+  ].some((field) => parsed.data[field as keyof typeof parsed.data] !== undefined);
+
+  if (updated && metadataFieldsChanged && updated.registryAssetId && updated.walletAddress) {
+    // Capture narrowed values for the fire-and-forget closure
+    const walletAddr = updated.walletAddress;
+    const assetId = updated.registryAssetId;
+    const agentData = updated;
+    // Fire-and-forget — don't block the PATCH response
+    updateAgentMetadataOnChain(
+      agentData.id,
+      agentData.name,
+      agentData.description ?? "",
+      walletAddr,
+      assetId,
+      agentData.avatarUrl,
+      agentData.username
+    ).then((success) => {
+      if (success) {
+        logAudit({
+          action: "agent_registry_metadata_updated",
+          userId: user.userId,
+          agentId,
+          metadata: { registryAssetId: assetId, trigger: "auto" },
+        });
+      }
+    }).catch(() => {
+      // Silently ignore — on-chain sync is best-effort
+    });
+  }
 
   return c.json({ success: true, data: updated });
 });
@@ -464,7 +546,9 @@ agentsRouter.post("/:id/register", async (c) => {
     agent.id,
     agent.name,
     agent.description ?? "",
-    agent.walletAddress
+    agent.walletAddress,
+    agent.avatarUrl,
+    agent.username
   );
 
   if (!registryAssetId) {
@@ -484,6 +568,116 @@ agentsRouter.post("/:id/register", async (c) => {
   return c.json({
     success: true,
     data: { registryAssetId },
+  }, 201);
+});
+
+/**
+ * POST /:id/update-metadata -- Update agent's on-chain metadata on the 8004 registry
+ */
+agentsRouter.post("/:id/update-metadata", async (c) => {
+  const user = c.get("user");
+  const agentId = c.req.param("id");
+
+  // Verify ownership
+  const agent = await db.query.agents.findFirst({
+    where: and(eq(agents.id, agentId), eq(agents.ownerId, user.userId)),
+  });
+
+  if (!agent) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Agent not found" } },
+      404
+    );
+  }
+
+  if (agent.status !== "active") {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must be active to update on-chain metadata" } },
+      400
+    );
+  }
+
+  if (!agent.registryAssetId) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent is not registered on-chain" } },
+      400
+    );
+  }
+
+  if (!agent.walletAddress) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Agent must have a wallet address" } },
+      400
+    );
+  }
+
+  const success = await updateAgentMetadataOnChain(
+    agent.id,
+    agent.name,
+    agent.description ?? "",
+    agent.walletAddress,
+    agent.registryAssetId,
+    agent.avatarUrl,
+    agent.username
+  );
+
+  if (!success) {
+    return c.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to update on-chain metadata. Check server logs for details." } },
+      500
+    );
+  }
+
+  logAudit({
+    action: "agent_registry_metadata_updated",
+    userId: user.userId,
+    agentId: agent.id,
+    metadata: { registryAssetId: agent.registryAssetId },
+  });
+
+  return c.json({ success: true });
+});
+
+/**
+ * POST /registry/init-collection -- Create the global Envoy collection (one-time setup)
+ */
+agentsRouter.post("/registry/init-collection", async (c) => {
+  const user = c.get("user");
+
+  // If collection pointer is already configured, return it
+  const existingPointer = process.env.REGISTRY_COLLECTION_POINTER;
+  if (existingPointer) {
+    return c.json({
+      success: true,
+      data: {
+        pointer: existingPointer,
+        message: "Collection pointer is already configured. No action needed.",
+      },
+    });
+  }
+
+  const result = await createEnvoyCollection();
+
+  if (!result) {
+    return c.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Failed to create collection. Check server logs for details." } },
+      500
+    );
+  }
+
+  logAudit({
+    action: "registry_collection_created",
+    userId: user.userId,
+    agentId: undefined,
+    metadata: { pointer: result.pointer, uri: result.uri, cid: result.cid },
+  });
+
+  return c.json({
+    success: true,
+    data: {
+      ...result,
+      message: "Collection created. Add this to your .env: REGISTRY_COLLECTION_POINTER=" + result.pointer,
+    },
   }, 201);
 });
 

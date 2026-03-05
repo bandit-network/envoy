@@ -23,6 +23,60 @@ function getIPFSClient(): IPFSClient | undefined {
 }
 
 /**
+ * Upload JSON metadata to Pinata directly using the v1 API.
+ * The 8004-solana SDK's IPFSClient uses Pinata v3 API which requires
+ * a different key format. This fallback uses the v1/v2 endpoint that
+ * works with standard scoped JWTs.
+ */
+async function uploadToPinataDirect(
+  data: Record<string, unknown>
+): Promise<string | null> {
+  if (!PINATA_JWT) return null;
+
+  try {
+    const response = await fetch(
+      "https://api.pinata.cloud/pinning/pinJSONToIPFS",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${PINATA_JWT}`,
+        },
+        body: JSON.stringify({
+          pinataContent: data,
+          pinataMetadata: { name: `envoy-agent-metadata` },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        `[registry] Pinata v1 upload failed: HTTP ${response.status} - ${errorText}`
+      );
+      return null;
+    }
+
+    const result = (await response.json()) as {
+      IpfsHash?: string;
+    };
+    const cid = result.IpfsHash;
+    if (!cid) {
+      console.error("[registry] Pinata v1 returned no IpfsHash");
+      return null;
+    }
+
+    return `ipfs://${cid}`;
+  } catch (err) {
+    console.error(
+      "[registry] Pinata v1 upload error:",
+      err instanceof Error ? err.message : err
+    );
+    return null;
+  }
+}
+
+/**
  * Build a SolanaSDK instance.
  * @param readOnly If true, no signer is attached (for queries only).
  */
@@ -67,7 +121,9 @@ export async function registerAgentOnChain(
   agentId: string,
   agentName: string,
   agentDescription: string,
-  walletAddress: string
+  walletAddress: string,
+  imageUrl?: string | null,
+  username?: string | null
 ): Promise<string | null> {
   if (!REGISTRY_ENABLED) {
     return null;
@@ -77,28 +133,39 @@ export async function registerAgentOnChain(
     const sdk = getRegistrySDK(false);
     if (!sdk) return null;
 
-    // Build agent metadata for IPFS
-    const metadata = {
+    // Resolve image: custom avatar → DiceBear identicon fallback
+    const image =
+      imageUrl || `https://api.dicebear.com/9.x/identicon/svg?seed=${agentId}`;
+
+    // Build agent metadata for IPFS (Metaplex-compatible JSON)
+    const metadata: Record<string, unknown> = {
       name: agentName,
       description: agentDescription || `AI agent registered via Envoy`,
+      image,
       properties: {
         envoy_agent_id: agentId,
         wallet_address: walletAddress,
         platform: "envoy",
         registered_at: new Date().toISOString(),
+        ...(username ? { username } : {}),
       },
     };
 
-    // Upload metadata to IPFS
-    const ipfs = getIPFSClient();
-    if (!ipfs) {
-      console.warn(
-        "[registry] PINATA_JWT not set — cannot upload metadata to IPFS"
-      );
-      return null;
-    }
+    // Upload metadata to IPFS via Pinata
+    // Try direct v1 API first (works with standard scoped JWTs),
+    // fall back to SDK's IPFSClient (uses v3 API) if that fails.
+    let metadataUri: string | null = await uploadToPinataDirect(metadata);
 
-    const metadataUri = await ipfs.addJson(metadata);
+    if (!metadataUri) {
+      const ipfs = getIPFSClient();
+      if (!ipfs) {
+        console.warn(
+          "[registry] PINATA_JWT not set — cannot upload metadata to IPFS"
+        );
+        return null;
+      }
+      metadataUri = await ipfs.addJson(metadata);
+    }
 
     // Register agent on-chain
     const result = await sdk.registerAgent(metadataUri, {
@@ -137,6 +204,148 @@ export async function registerAgentOnChain(
     // Never let registry registration block agent creation
     console.error(
       "[registry] Failed to register agent on-chain:",
+      err instanceof Error ? err.message : err
+    );
+    return null;
+  }
+}
+
+/**
+ * Update an agent's on-chain metadata on the 8004 Solana registry.
+ *
+ * Called when agent metadata (name, avatar, username) changes.
+ * Uploads new metadata JSON to IPFS and calls setAgentUri() to update the NFT.
+ *
+ * - If REGISTRY_ENABLED is false, returns false silently.
+ * - If update fails, logs the error and returns false.
+ *   Agent metadata updates NEVER fail due to registry errors.
+ */
+export async function updateAgentMetadataOnChain(
+  agentId: string,
+  agentName: string,
+  agentDescription: string,
+  walletAddress: string,
+  registryAssetId: string,
+  imageUrl?: string | null,
+  username?: string | null
+): Promise<boolean> {
+  if (!REGISTRY_ENABLED) {
+    return false;
+  }
+
+  try {
+    const sdk = getRegistrySDK(false);
+    if (!sdk) return false;
+
+    // Resolve image: custom avatar → DiceBear identicon fallback
+    const image =
+      imageUrl || `https://api.dicebear.com/9.x/identicon/svg?seed=${agentId}`;
+
+    // Build updated metadata (same structure as registerAgentOnChain)
+    const metadata: Record<string, unknown> = {
+      name: agentName,
+      description: agentDescription || `AI agent registered via Envoy`,
+      image,
+      properties: {
+        envoy_agent_id: agentId,
+        wallet_address: walletAddress,
+        platform: "envoy",
+        updated_at: new Date().toISOString(),
+        ...(username ? { username } : {}),
+      },
+    };
+
+    // Upload updated metadata to IPFS
+    let metadataUri: string | null = await uploadToPinataDirect(metadata);
+
+    if (!metadataUri) {
+      const ipfs = getIPFSClient();
+      if (!ipfs) {
+        console.warn(
+          "[registry] PINATA_JWT not set — cannot upload metadata to IPFS"
+        );
+        return false;
+      }
+      metadataUri = await ipfs.addJson(metadata);
+    }
+
+    // Update on-chain via setAgentUri()
+    const { PublicKey } = await import("@solana/web3.js");
+    const result = await sdk.setAgentUri(
+      new PublicKey(registryAssetId),
+      metadataUri
+    );
+
+    if (!("success" in result) || !result.success) {
+      const errorMsg =
+        "error" in result ? (result as { error?: string }).error : "Unknown error";
+      console.error("[registry] On-chain metadata update failed:", errorMsg);
+      return false;
+    }
+
+    console.log(
+      `[registry] Updated agent ${agentId} metadata on 8004 → ${metadataUri}`
+    );
+    return true;
+  } catch (err) {
+    // Never let metadata update block the DB update
+    console.error(
+      "[registry] Failed to update agent metadata on-chain:",
+      err instanceof Error ? err.message : err
+    );
+    return false;
+  }
+}
+
+/**
+ * Create the global Envoy collection on the 8004 Solana registry.
+ *
+ * This is a one-time setup operation. The returned `pointer` should be
+ * stored as the REGISTRY_COLLECTION_POINTER environment variable.
+ */
+export async function createEnvoyCollection(): Promise<{
+  pointer: string;
+  uri: string;
+  cid: string;
+} | null> {
+  if (!REGISTRY_ENABLED) {
+    console.warn("[registry] REGISTRY_ENABLED is false — cannot create collection");
+    return null;
+  }
+
+  try {
+    const sdk = getRegistrySDK(false);
+    if (!sdk) return null;
+
+    const result = await sdk.createCollection({
+      name: "Envoy Agents",
+      description:
+        "AI agents registered via Envoy — human-owned identities trusted by platforms everywhere.",
+      category: "assistant",
+      image: "https://api.dicebear.com/9.x/shapes/svg?seed=envoy-collection",
+      socials: { website: "https://useenvoy.dev" },
+    });
+
+    if (!result.pointer || !result.uri || !result.cid) {
+      console.error(
+        "[registry] Collection created but missing pointer/uri/cid:",
+        result
+      );
+      return null;
+    }
+
+    console.log(
+      `[registry] Created Envoy collection → pointer: ${result.pointer}`
+    );
+
+    return {
+      pointer: result.pointer,
+      uri: result.uri,
+      cid: result.cid,
+    };
+  } catch (err) {
+    console.error(
+      "[registry] Failed to create collection:",
       err instanceof Error ? err.message : err
     );
     return null;

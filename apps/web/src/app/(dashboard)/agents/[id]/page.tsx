@@ -149,6 +149,21 @@ export default function AgentDetailPage() {
     }
   }
 
+  async function handleUpdateMetadata() {
+    setActionLoading("update-metadata");
+    try {
+      await apiPost(`/api/v1/agents/${agentId}/update-metadata`, {}, authFetch);
+      toast.success("On-chain metadata updated");
+      await loadAgent();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to update on-chain metadata";
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleUnsuspend() {
     setActionLoading("unsuspend");
     try {
@@ -236,9 +251,20 @@ export default function AgentDetailPage() {
                 variant="outline"
                 onClick={handleRegisterOnChain}
                 loading={actionLoading === "register"}
-                className="border-accent/30 text-accent hover:bg-accent/10"
+                className="border-registry/30 text-registry hover:bg-registry/10"
               >
                 Register on 8004
+              </Button>
+            )}
+            {agent.registryAssetId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleUpdateMetadata}
+                loading={actionLoading === "update-metadata"}
+                className="border-registry/30 text-registry hover:bg-registry/10"
+              >
+                Update On-Chain Metadata
               </Button>
             )}
             <Button
@@ -304,7 +330,7 @@ export default function AgentDetailPage() {
       {/* Two-column layout */}
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-4">
-          <AgentInfoCard agent={agent} />
+          <AgentInfoCard agent={agent} isPaired={!!manifest && !manifest.revokedAt} />
         </div>
         <div className="space-y-4">
           {manifest && <ManifestCard manifest={manifest} />}
@@ -330,13 +356,13 @@ export default function AgentDetailPage() {
                     <div key={entry.id} className="relative flex gap-3 pb-4">
                       {/* Timeline connector */}
                       <div className="flex flex-col items-center">
-                        <div className="mt-1 h-2 w-2 shrink-0 rounded-full border-2 border-border bg-background" />
+                        <div className={`mt-1 h-2 w-2 shrink-0 rounded-full border-2 ${entry.action === "agent_registry_registered" ? "border-registry bg-registry/20" : "border-border bg-background"}`} />
                         {i < audit.length - 1 && (
                           <div className="mt-1 h-full w-px bg-border" />
                         )}
                       </div>
                       <div className="flex flex-1 items-start justify-between pb-1">
-                        <span className="text-[13px] text-foreground">
+                        <span className={`text-[13px] ${entry.action === "agent_registry_registered" ? "text-registry" : "text-foreground"}`}>
                           {actionLabels[entry.action] ?? entry.action}
                         </span>
                         <span className="shrink-0 text-[12px] text-muted">
