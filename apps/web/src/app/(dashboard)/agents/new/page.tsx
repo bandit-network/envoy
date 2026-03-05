@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, CardContent, Input, Textarea, Badge } from "@envoy/ui";
-import { PageHeader } from "@/components/layout/page-header";
+import { Button, Card, CardContent, Input, Textarea } from "@envoy/ui";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { getAgentAvatarUrl } from "@/lib/avatar";
@@ -30,6 +29,8 @@ interface PairingData {
 interface CreateAgentResponse {
   id: string;
   name: string;
+  walletAddress?: string;
+  walletSecretKey?: string;
   pairing?: PairingData;
 }
 
@@ -93,7 +94,7 @@ export default function CreateAgentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgent, setCreatedAgent] = useState<CreateAgentResponse | null>(null);
-  const [copied, setCopied] = useState<"id" | "secret" | "prompt" | null>(null);
+  const [copied, setCopied] = useState<"prompt" | null>(null);
 
   const loadOrgs = useCallback(async () => {
     try {
@@ -162,14 +163,23 @@ export default function CreateAgentPage() {
     );
   }
 
-  async function copyToClipboard(text: string, field: "id" | "secret" | "prompt") {
+  async function copyToClipboard(text: string, field: "prompt") {
     await navigator.clipboard.writeText(text);
     setCopied(field);
     setTimeout(() => setCopied(null), 2000);
   }
 
-  // ── Success screen: show pairing credentials ──────────────────────
+  // ── Success screen: show agent prompt with all credentials ──────
   if (createdAgent?.pairing) {
+    const domain = process.env.NEXT_PUBLIC_APP_URL ?? "https://useenvoy.dev";
+    const walletLine = createdAgent.walletSecretKey
+      ? `\nENVOY_WALLET_SECRET_KEY=${createdAgent.walletSecretKey}`
+      : "";
+    const prompt = `You have been assigned an Envoy identity. Read ${domain}/skill.md and complete pairing with these credentials:
+
+ENVOY_PAIRING_ID=${createdAgent.pairing.pairingId}
+ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}${walletLine}`;
+
     return (
       <div className="animate-fade-in">
         <div className="mx-auto max-w-lg">
@@ -186,118 +196,51 @@ export default function CreateAgentPage() {
             Agent Created
           </h1>
           <p className="mt-2 text-center text-[13px] text-muted">
-            Give these pairing credentials to your agent. The secret is shown once and expires in 10 minutes.
+            Copy the prompt below and paste it into your agent. It contains everything needed to pair with Envoy.
           </p>
 
-          <Card className="mt-6">
-            <CardContent className="space-y-4 p-5">
-              {/* Pairing ID */}
-              <div>
-                <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wider text-muted">
-                  Pairing ID
-                </label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded-lg border border-border bg-elevated px-3 py-2.5 font-mono text-[13px] text-foreground break-all">
-                    {createdAgent.pairing.pairingId}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(createdAgent.pairing!.pairingId, "id")}
-                    className="shrink-0 rounded-lg border border-border p-2.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
-                    title="Copy"
-                  >
-                    {copied === "id" ? (
-                      <svg className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
+          {/* Warning */}
+          <div className="mt-5 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
+            <p className="text-[13px] text-yellow-600 dark:text-yellow-400">
+              <strong>Copy this now.</strong> Secrets are only shown once. The pairing secret expires in 10 minutes.
+              {createdAgent.walletSecretKey && " The wallet secret key is never stored by Envoy."}
+            </p>
+          </div>
 
-              {/* Pairing Secret */}
-              <div>
-                <label className="mb-1.5 block text-[12px] font-medium uppercase tracking-wider text-muted">
-                  Pairing Secret
-                </label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded-lg border border-border bg-elevated px-3 py-2.5 font-mono text-[13px] text-foreground break-all">
-                    {createdAgent.pairing.pairingSecret}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(createdAgent.pairing!.pairingSecret, "secret")}
-                    className="shrink-0 rounded-lg border border-border p-2.5 text-muted transition-colors hover:bg-surface hover:text-foreground"
-                    title="Copy"
-                  >
-                    {copied === "secret" ? (
-                      <svg className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Warning */}
-              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3">
-                <p className="text-[13px] text-yellow-600 dark:text-yellow-400">
-                  <strong>Copy these now.</strong> The secret is only shown once and expires in 10 minutes. Your agent only needs these two values to complete pairing.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Agent prompt — copy-pasteable instruction for any agent */}
-          {(() => {
-            const domain = process.env.NEXT_PUBLIC_APP_URL ?? "https://useenvoy.dev";
-            const prompt = `You have been assigned an Envoy identity. Read ${domain}/skill.md and complete pairing with these credentials:
-
-ENVOY_PAIRING_ID=${createdAgent.pairing.pairingId}
-ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}`;
-
-            return (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[13px] font-medium text-foreground">
-                    Agent Prompt
-                  </p>
-                  <button
-                    onClick={() => copyToClipboard(prompt, "prompt")}
-                    className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
-                  >
-                    {copied === "prompt" ? (
-                      <>
-                        <svg className="h-3.5 w-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                        </svg>
-                        Copy Prompt
-                      </>
-                    )}
-                  </button>
-                </div>
-                <pre className="rounded-lg border border-border bg-elevated px-4 py-3 font-mono text-[12px] text-muted leading-relaxed whitespace-pre-wrap break-all">
-                  {prompt}
-                </pre>
-                <p className="mt-1.5 text-[12px] text-muted">
-                  Paste this into your agent&apos;s system prompt or config. The skill.md has everything it needs.
-                </p>
-              </div>
-            );
-          })()}
+          {/* Agent prompt — single block with everything */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[13px] font-medium text-foreground">
+                Agent Prompt
+              </p>
+              <button
+                onClick={() => copyToClipboard(prompt, "prompt")}
+                className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-[12px] font-medium text-muted transition-colors hover:bg-surface hover:text-foreground"
+              >
+                {copied === "prompt" ? (
+                  <>
+                    <svg className="h-3.5 w-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                    </svg>
+                    Copy Prompt
+                  </>
+                )}
+              </button>
+            </div>
+            <pre className="rounded-lg border border-border bg-elevated px-4 py-3 font-mono text-[12px] text-muted leading-relaxed whitespace-pre-wrap break-all">
+              {prompt}
+            </pre>
+            <p className="mt-1.5 text-[12px] text-muted">
+              Paste this into your agent&apos;s system prompt or config. The skill.md has everything it needs.
+            </p>
+          </div>
 
           {/* Action buttons */}
           <div className="mt-6 flex items-center justify-center gap-3">
@@ -561,15 +504,15 @@ ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}`;
               {/* On-Chain Identity — informational */}
               <div>
                 <h3 className="text-[13px] font-medium uppercase tracking-wider text-muted">
-                  On-Chain Identity (8004)
+                  On-Chain Identity
                 </h3>
                 <div className="mt-3 rounded-lg border border-border bg-surface px-4 py-3">
                   <p className="text-[13px] text-foreground font-medium">
                     Optional - register after creation
                   </p>
                   <p className="mt-1 text-[12px] text-muted leading-relaxed">
-                    Some platforms require agents to have on-chain identity on the 8004 Solana registry.
-                    Check with the platform your agent will interact with. You can register on 8004 from
+                    Some platforms require agents to have on-chain identity on the Solana registry.
+                    Check with the platform your agent will interact with. You can register on-chain from
                     the agent detail page after creation. It costs a small amount of SOL paid from your connected wallet.
                   </p>
                 </div>

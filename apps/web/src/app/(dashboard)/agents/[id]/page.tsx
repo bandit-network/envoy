@@ -68,7 +68,8 @@ const actionLabels: Record<string, string> = {
   manifest_revoked: "Manifest revoked",
   pairing_created: "Pairing initiated",
   pairing_confirmed: "Pairing confirmed",
-  agent_registry_registered: "Registered on 8004",
+  agent_registry_registered: "Registered on-chain",
+  agent_wallet_imported: "Wallet imported",
 };
 
 export default function AgentDetailPage() {
@@ -84,6 +85,8 @@ export default function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showImportWallet, setShowImportWallet] = useState(false);
+  const [importWalletAddress, setImportWalletAddress] = useState("");
 
   const loadAgent = useCallback(async () => {
     try {
@@ -175,7 +178,7 @@ export default function AgentDetailPage() {
         blockhash: string;
         lastValidBlockHeight: number;
         assetPubkey: string;
-      }>(`/api/v1/agents/${agentId}/register/prepare`, {
+      }>(`/api/v1/agents/${agentId}/register-prepare`, {
         humanWalletAddress: publicKey.toBase58(),
       }, authFetch);
 
@@ -199,12 +202,12 @@ export default function AgentDetailPage() {
       }, "confirmed");
 
       // Step 5: Tell the backend to store the asset ID
-      await apiPost(`/api/v1/agents/${agentId}/register/confirm`, {
+      await apiPost(`/api/v1/agents/${agentId}/register-confirm`, {
         registryAssetId: prepared.assetPubkey,
         txSignature,
       }, authFetch);
 
-      toast.success("Agent registered on 8004 registry");
+      toast.success("Agent registered on-chain");
       await loadAgent();
     } catch (err) {
       const message =
@@ -224,6 +227,34 @@ export default function AgentDetailPage() {
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Failed to update on-chain metadata";
+      toast.error(message);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleImportWallet() {
+    const addr = importWalletAddress.trim();
+    if (!addr) {
+      toast.error("Please enter a wallet address");
+      return;
+    }
+    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr)) {
+      toast.error("Invalid Solana wallet address");
+      return;
+    }
+    setActionLoading("import-wallet");
+    try {
+      await apiPost(`/api/v1/agents/${agentId}/import-wallet`, {
+        walletAddress: addr,
+      }, authFetch);
+      toast.success("Wallet imported");
+      setShowImportWallet(false);
+      setImportWalletAddress("");
+      await loadAgent();
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to import wallet";
       toast.error(message);
     } finally {
       setActionLoading(null);
@@ -320,7 +351,7 @@ export default function AgentDetailPage() {
                   loading={actionLoading === "register"}
                   className="border-registry/30 text-registry hover:bg-registry/10"
                 >
-                  Register on 8004
+                  Register On-Chain
                 </Button>
                 {isDevnet && (
                   <button
@@ -332,6 +363,18 @@ export default function AgentDetailPage() {
                   </button>
                 )}
               </>
+            )}
+            {!agent.walletAddress && !agent.registryAssetId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowImportWallet(true)}
+              >
+                <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                </svg>
+                Import Wallet
+              </Button>
             )}
             {agent.registryAssetId && (
               <Button
@@ -395,6 +438,45 @@ export default function AgentDetailPage() {
           <p className="text-[13px] text-yellow-600 dark:text-yellow-400">
             This agent is suspended. Manifests cannot be issued until reactivated.
           </p>
+        </div>
+      )}
+
+      {/* Import wallet inline form */}
+      {showImportWallet && (
+        <div className="mb-4 rounded-lg border border-border bg-surface px-4 py-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-[14px] font-semibold text-foreground">Import Wallet</h3>
+              <p className="mt-1 text-[12px] text-muted">
+                Enter an existing Solana wallet address (public key). Envoy will never ask for the private key.
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowImportWallet(false); setImportWalletAddress(""); }}
+              className="ml-4 shrink-0 rounded-md p-1 text-muted hover:text-foreground"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Solana wallet address (e.g. 7xKXt...)"
+              value={importWalletAddress}
+              onChange={(e) => setImportWalletAddress(e.target.value.trim())}
+              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <Button
+              size="sm"
+              onClick={handleImportWallet}
+              loading={actionLoading === "import-wallet"}
+              disabled={!importWalletAddress.trim()}
+            >
+              Import
+            </Button>
+          </div>
         </div>
       )}
 
