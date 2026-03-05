@@ -11,7 +11,8 @@ import { apiGet } from "@/lib/api";
 interface UserInfo {
   user: {
     userId: string;
-    privyUserId: string;
+    walletAddress: string;
+    privyUserId: string | null;
     email: string | null;
   };
 }
@@ -89,15 +90,17 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
-                <div className="flex items-center justify-between py-3">
-                  <div className="min-w-0">
-                    <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Privy ID</dt>
-                    <dd className="mt-0.5 truncate font-mono text-[12px] text-foreground">
-                      {user.privyUserId}
-                    </dd>
+                {user.walletAddress && (
+                  <div className="flex items-center justify-between py-3">
+                    <div className="min-w-0">
+                      <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Wallet Address</dt>
+                      <dd className="mt-0.5 truncate font-mono text-[12px] text-foreground">
+                        {user.walletAddress}
+                      </dd>
+                    </div>
+                    <CopyButton value={user.walletAddress} />
                   </div>
-                  <CopyButton value={user.privyUserId} />
-                </div>
+                )}
                 <div className="flex items-center justify-between py-3">
                   <div className="min-w-0">
                     <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">User ID</dt>

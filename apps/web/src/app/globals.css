@@ -121,3 +121,210 @@ body {
 .animate-slide-down {
   animation: slide-down 0.5s ease-out;
 }
+
+/* =============================================
+   Solana Wallet Adapter — Envoy theme overrides
+   ============================================= */
+
+/* Button base — match Envoy's 13px font, Geist family */
+.wallet-adapter-button {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  height: auto;
+  padding: 8px 16px;
+  border-radius: 8px;
+  line-height: 1.4;
+  color: var(--foreground);
+  background-color: transparent;
+  border: 1px solid var(--border);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.wallet-adapter-button:not([disabled]):hover {
+  background-color: var(--elevated);
+  border-color: var(--muted);
+}
+
+.wallet-adapter-button[disabled] {
+  background-color: var(--elevated);
+  color: var(--muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* Trigger (primary CTA) — filled style */
+.wallet-adapter-button-trigger {
+  background-color: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+
+.wallet-adapter-button-trigger:not([disabled]):hover {
+  background-color: var(--foreground);
+  opacity: 0.9;
+  border-color: var(--foreground);
+}
+
+/* Wallet icon sizing */
+.wallet-adapter-button-start-icon,
+.wallet-adapter-button-end-icon,
+.wallet-adapter-button-start-icon img,
+.wallet-adapter-button-end-icon img {
+  width: 18px;
+  height: 18px;
+}
+
+.wallet-adapter-button-start-icon {
+  margin-right: 8px;
+}
+
+.wallet-adapter-button-end-icon {
+  margin-left: 8px;
+}
+
+/* Dropdown list */
+.wallet-adapter-dropdown-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  gap: 2px;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.wallet-adapter-dropdown-list-item {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--foreground);
+  background: transparent;
+  transition: background-color 150ms ease;
+}
+
+.wallet-adapter-dropdown-list-item:hover {
+  background-color: var(--elevated) !important;
+}
+
+/* Modal overlay */
+.wallet-adapter-modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Modal wrapper */
+.wallet-adapter-modal-wrapper {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-width: 380px;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Modal title */
+.wallet-adapter-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--foreground);
+  padding: 24px 24px 16px 24px;
+  text-align: left;
+}
+
+/* Modal close button */
+.wallet-adapter-modal-button-close {
+  top: 16px;
+  right: 16px;
+  padding: 4px;
+  background: transparent;
+  color: var(--muted);
+  transition: color 150ms ease;
+}
+
+.wallet-adapter-modal-button-close:hover {
+  color: var(--foreground);
+}
+
+.wallet-adapter-modal-button-close svg {
+  fill: currentColor;
+  width: 16px;
+  height: 16px;
+}
+
+/* Modal wallet list */
+.wallet-adapter-modal-list {
+  padding: 0 8px 8px;
+  margin: 0;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: var(--foreground);
+  background: transparent;
+  transition: background-color 150ms ease;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background-color: var(--elevated) !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button-end-icon,
+.wallet-adapter-modal-list .wallet-adapter-button-start-icon,
+.wallet-adapter-modal-list .wallet-adapter-button-end-icon img,
+.wallet-adapter-modal-list .wallet-adapter-button-start-icon img {
+  width: 24px;
+  height: 24px;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* "More options" toggle */
+.wallet-adapter-modal-list-more {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 16px 16px;
+}
+
+.wallet-adapter-modal-list-more:hover {
+  color: var(--foreground);
+}
+
+.wallet-adapter-modal-list-more svg {
+  fill: var(--muted);
+}
+
+/* "What is a wallet?" middle section */
+.wallet-adapter-modal-middle {
+  padding: 0 24px 24px;
+}
+
+.wallet-adapter-modal-middle-button {
+  background-color: var(--foreground);
+  color: var(--background);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 24px;
+  transition: opacity 150ms ease;
+}
+
+.wallet-adapter-modal-middle-button:hover {
+  opacity: 0.9;
+}
+
+/* Collapse animation */
+.wallet-adapter-collapse {
+  transition: height 200ms ease;
+}

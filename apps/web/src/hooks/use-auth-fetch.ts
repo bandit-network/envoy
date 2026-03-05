@@ -1,13 +1,13 @@
 "use client";
 
-import { usePrivy } from "@privy-io/react-auth";
+import { useEnvoyAuth } from "@/components/providers/auth-context";
 import { useCallback } from "react";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
 /**
- * Returns a fetch function pre-configured with the Privy auth token.
+ * Returns a fetch function pre-configured with the Envoy session token.
  *
  * Usage:
  *   const authFetch = useAuthFetch();
@@ -15,11 +15,11 @@ const API_BASE_URL =
  *   const data = await res.json();
  */
 export function useAuthFetch() {
-  const { getAccessToken } = usePrivy();
+  const { getAccessToken } = useEnvoyAuth();
 
   return useCallback(
     async (path: string, init?: RequestInit): Promise<Response> => {
-      const token = await getAccessToken();
+      const token = getAccessToken();
 
       if (!token) {
         throw new Error("Not authenticated");

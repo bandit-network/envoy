@@ -13,38 +13,86 @@ export default function AuthenticationPage() {
       <Section id="overview" title="Overview">
         <Prose>
           <p>
-            Envoy delegates all human authentication to <strong>Privy</strong>. When a user
-            logs in through the Envoy dashboard, Privy handles the login flow (email, social,
-            wallet) and returns a signed JWT. The Envoy API validates this JWT on every request
-            using the Privy server SDK.
+            Envoy uses <strong>Solana wallet-based authentication</strong> by default. When a user
+            connects their wallet (Phantom, Solflare, Backpack) through the dashboard, they sign
+            a challenge message to prove ownership. Envoy then issues a short-lived session JWT.
+          </p>
+          <p>
+            Hosters can optionally configure Privy or other auth providers via the
+            <code>AUTH_PROVIDER</code> environment variable.
           </p>
           <p>
             There are three types of authentication depending on who is calling the API:
           </p>
           <ul>
-            <li><strong>Human operators</strong> use Privy Bearer tokens</li>
+            <li><strong>Human operators</strong> use Envoy session JWTs (via wallet challenge-response)</li>
             <li><strong>Agent runtimes</strong> use pairing secrets (one-time, no auth)</li>
             <li><strong>Platforms</strong> use API keys or the public verify endpoint</li>
           </ul>
         </Prose>
       </Section>
 
-      <Section id="bearer-tokens" title="Bearer Tokens (Human Operators)">
+      <Section id="wallet-auth" title="Wallet Authentication (Human Operators)">
+        <Prose>
+          <p>
+            Human operators authenticate by connecting a Solana wallet and signing a challenge message.
+            This is a two-step process:
+          </p>
+          <ol>
+            <li>Request a challenge nonce from the API</li>
+            <li>Sign the challenge with your wallet and submit for verification</li>
+          </ol>
+        </Prose>
+
+        <CodeBlock title="Step 1: Request challenge">{`curl -X POST https://api.useenvoy.dev/api/v1/auth/challenge \\
+  -H "Content-Type: application/json" \\
+  -d '{"walletAddress": "<base58-public-key>"}'
+
+# Response:
+# {
+#   "success": true,
+#   "data": {
+#     "nonce": "abc123...",
+#     "message": "Sign this message to authenticate with Envoy.\\n\\nNonce: abc123...",
+#     "expiresAt": "2026-03-01T00:05:00.000Z"
+#   }
+# }`}</CodeBlock>
+
+        <CodeBlock title="Step 2: Sign and verify">{`curl -X POST https://api.useenvoy.dev/api/v1/auth/verify \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "walletAddress": "<base58-public-key>",
+    "signature": "<base58-encoded-signature>",
+    "nonce": "abc123..."
+  }'
+
+# Response:
+# {
+#   "success": true,
+#   "data": {
+#     "token": "eyJhbGciOiJIUzI1NiI...",
+#     "expiresAt": "2026-03-01T01:00:00.000Z",
+#     "user": { "userId": "uuid", "walletAddress": "..." }
+#   }
+# }`}</CodeBlock>
+      </Section>
+
+      <Section id="bearer-tokens" title="Bearer Tokens">
         <Prose>
           <p>
             Most API endpoints require a Bearer token in the Authorization header. This token
-            is obtained from Privy after the user logs in via the dashboard.
+            is obtained after completing the wallet challenge-response flow.
           </p>
         </Prose>
 
         <CodeBlock title="Authenticated request">{`curl -X GET https://api.useenvoy.dev/api/v1/agents \\
-  -H "Authorization: Bearer <privy-jwt-token>" \\
+  -H "Authorization: Bearer <session-jwt>" \\
   -H "Content-Type: application/json"`}</CodeBlock>
 
         <div className="mt-4">
           <Prose>
             <p>
-              The API middleware extracts the token, verifies it with Privy&apos;s server SDK,
+              The API middleware extracts the token, verifies the HS256 signature,
               and injects the authenticated user into the request context. If the token is
               invalid or expired, the API returns a <code>401 Unauthorized</code> response.
             </p>
@@ -55,24 +103,24 @@ export default function AuthenticationPage() {
       <Section id="token-lifecycle" title="Token Lifecycle">
         <Prose>
           <p>
-            Privy JWTs have a short lifespan (typically 1 hour). The Privy client SDK
-            handles automatic token refresh in the background. When making API calls from
-            the dashboard, the <code>useAuthFetch</code> hook ensures a fresh token is
-            attached to every request.
+            Session JWTs have a 1-hour lifespan by default (configurable via
+            <code>TOKEN_DEFAULT_TTL</code>). When the token expires, the user must
+            re-authenticate by signing a new challenge message.
           </p>
         </Prose>
 
-        <CodeBlock title="Dashboard flow">{`// 1. User logs in via Privy (handled by @privy-io/react-auth)
-// 2. Privy returns JWT
-// 3. Dashboard uses authFetch for API calls:
+        <CodeBlock title="Dashboard flow">{`// 1. User connects Solana wallet (Phantom, Solflare, etc.)
+// 2. User signs challenge message
+// 3. Dashboard stores JWT in localStorage
+// 4. Dashboard uses authFetch for API calls:
 
 const authFetch = useAuthFetch();
 const agents = await apiGet("/api/v1/agents", authFetch);
 
 // authFetch automatically:
-// - Retrieves the current Privy access token
+// - Retrieves the stored session token
 // - Attaches it as Authorization: Bearer <token>
-// - Handles token refresh if expired`}</CodeBlock>
+// - Throws if token is expired (user must re-sign)`}</CodeBlock>
       </Section>
 
       <Section id="agent-pairing" title="Agent Pairing (Agent Runtimes)">
@@ -132,10 +180,30 @@ const { data } = await response.json();
   -d '{"token": "eyJhbGciOiJSUzI1NiI..."}'`}</CodeBlock>
       </Section>
 
+      <Section id="auth-providers" title="Auth Provider Configuration">
+        <Prose>
+          <p>
+            Envoy supports a pluggable auth provider model. The default is Solana wallet adapter,
+            but hosters can configure alternative providers:
+          </p>
+          <ul>
+            <li><strong>wallet</strong> (default) — Solana wallet adapter with challenge-response</li>
+            <li><strong>privy</strong> — Privy server SDK (requires <code>PRIVY_APP_ID</code> and <code>PRIVY_APP_SECRET</code>)</li>
+          </ul>
+          <p>
+            Set the <code>AUTH_PROVIDER</code> environment variable to switch providers.
+            When using wallet auth, you must also set <code>ENVOY_SESSION_SECRET</code>
+            (generate with <code>openssl rand -hex 32</code>).
+          </p>
+        </Prose>
+      </Section>
+
       <Section id="security" title="Security Notes">
         <Prose>
           <ul>
             <li><strong>Tokens are short-lived:</strong> 1 hour default, 24 hour maximum TTL</li>
+            <li><strong>Challenge nonces are single-use:</strong> 5 minute TTL, deleted after verification</li>
+            <li><strong>Signatures are Ed25519:</strong> verified using the wallet&apos;s public key</li>
             <li><strong>Manifests are signed with RS256:</strong> only the Envoy API can issue them</li>
             <li><strong>Pairing secrets are single-use:</strong> 10 minute TTL, hashed with Argon2</li>
             <li><strong>API keys are hashed:</strong> only the prefix is stored, the full key is shown once</li>

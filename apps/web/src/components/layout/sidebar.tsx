@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useEnvoyAuth } from "@/components/providers/auth-context";
 import { cn } from "@envoy/ui";
+import { useState } from "react";
 
 const navItems = [
   {
@@ -70,7 +73,14 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { logout } = usePrivy();
+  const { logout, user, authenticated, login, loggingIn } = useEnvoyAuth();
+  const { connected } = useWallet();
+  const { setVisible } = useWalletModal();
+  const [error, setError] = useState<string | null>(null);
+
+  const truncatedAddress = user?.walletAddress
+    ? `${user.walletAddress.slice(0, 4)}...${user.walletAddress.slice(-4)}`
+    : null;
 
   return (
     <>
@@ -136,16 +146,79 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-border px-3 py-3">
-          <button
-            onClick={() => logout()}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13px] font-medium text-muted transition-colors hover:bg-elevated/50 hover:text-foreground"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            </svg>
-            Sign out
-          </button>
+        <div className="border-t border-border px-3 py-3 space-y-1">
+          {authenticated ? (
+            <>
+              {/* Connected wallet */}
+              {truncatedAddress && (
+                <div className="flex items-center gap-2 rounded-md px-2.5 py-[7px]">
+                  <div className="h-1.5 w-1.5 rounded-full bg-success" />
+                  <span className="font-mono text-[11px] text-muted">
+                    {truncatedAddress}
+                  </span>
+                </div>
+              )}
+
+              {/* Sign out */}
+              <button
+                onClick={() => logout()}
+                className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-[13px] font-medium text-muted transition-colors hover:bg-elevated/50 hover:text-foreground"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+                </svg>
+                Sign out
+              </button>
+            </>
+          ) : !connected ? (
+            /* Not connected — show connect button */
+            <button
+              onClick={() => setVisible(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-2.5 py-[7px] text-[13px] font-medium text-background transition-colors hover:bg-foreground/90"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <rect x="2" y="6" width="20" height="14" rx="2" />
+                <path d="M2 10h20" />
+                <circle cx="17" cy="14" r="1" fill="currentColor" stroke="none" />
+              </svg>
+              Connect Wallet
+            </button>
+          ) : (
+            /* Wallet connected but not signed — show sign button */
+            <>
+              <button
+                onClick={async () => {
+                  setError(null);
+                  try {
+                    await login();
+                  } catch (err) {
+                    setError(
+                      err instanceof Error ? err.message : "Auth failed"
+                    );
+                  }
+                }}
+                disabled={loggingIn}
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-2.5 py-[7px] text-[13px] font-medium text-background transition-colors hover:bg-foreground/90 disabled:opacity-50"
+              >
+                {loggingIn ? (
+                  <>
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-background/30 border-t-background" />
+                    Signing...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                    Sign In
+                  </>
+                )}
+              </button>
+              {error && (
+                <p className="px-1 text-[11px] text-danger">{error}</p>
+              )}
+            </>
+          )}
         </div>
       </aside>
     </>

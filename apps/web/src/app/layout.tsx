@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
-import { PrivyProvider } from "@/components/providers/privy-provider";
+import { SolanaWalletProvider } from "@/components/providers/wallet-provider";
+import { EnvoyAuthProvider } from "@/components/providers/auth-context";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import "./globals.css";
 
@@ -31,7 +32,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <PrivyProvider>{children}</PrivyProvider>
+          <SolanaWalletProvider>
+            <EnvoyAuthProvider>{children}</EnvoyAuthProvider>
+          </SolanaWalletProvider>
           <ToastProvider />
         </ThemeProvider>
       </body>
