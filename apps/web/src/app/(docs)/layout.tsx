@@ -11,6 +11,9 @@ const navItems = [
   { href: "/docs/authentication", label: "Authentication" },
   { href: "/docs/platform-guide", label: "Platform Guide" },
   { href: "/docs/sdk", label: "SDK" },
+  { href: "/docs/agent-sdk", label: "Agent SDK" },
+  { href: "/docs/webhooks", label: "Webhooks" },
+  { href: "/docs/registry", label: "8004 Registry" },
 ];
 
 export default function DocsLayout({

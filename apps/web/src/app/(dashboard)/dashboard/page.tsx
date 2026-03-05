@@ -7,35 +7,14 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
 import { apiGet } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
-
-interface AgentRow {
-  id: string;
-  name: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AgentListResponse {
-  agents: AgentRow[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-interface PlatformRow {
-  id: string;
-  name: string;
-  domain: string;
-  createdAt: string;
-}
-
-interface PlatformListResponse {
-  platforms: PlatformRow[];
-  total: number;
-  limit: number;
-  offset: number;
-}
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 interface AuditEntry {
   id: string;
@@ -44,19 +23,22 @@ interface AuditEntry {
   createdAt: string;
 }
 
-interface AuditResponse {
-  entries: AuditEntry[];
-  total: number;
+interface TimelinePoint {
+  day: string;
+  count: number;
 }
 
-interface Stats {
-  totalAgents: number;
-  activeAgents: number;
-  suspendedAgents: number;
-  revokedAgents: number;
-  totalPlatforms: number;
+interface StatsResponse {
+  agents: {
+    total: number;
+    active: number;
+    suspended: number;
+    revoked: number;
+  };
+  platforms: { total: number };
+  manifests: { total: number; active: number };
   recentActivity: AuditEntry[];
-  lastActivity: string | null;
+  agentTimeline: TimelinePoint[];
 }
 
 const actionLabels: Record<string, string> = {
@@ -69,49 +51,31 @@ const actionLabels: Record<string, string> = {
   pairing_confirmed: "Pairing confirmed",
   api_key_created: "API key created",
   api_key_revoked: "API key revoked",
+  agent_registry_registered: "Registered on 8004",
 };
+
+function formatChartDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 export default function DashboardPage() {
   const authFetch = useAuthFetch();
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [agentData, platformData, auditData] = await Promise.all([
-          apiGet<AgentListResponse>("/api/v1/agents?limit=100", authFetch),
-          apiGet<PlatformListResponse>("/api/v1/platforms?limit=100", authFetch).catch(() => ({ platforms: [], total: 0, limit: 100, offset: 0 })),
-          apiGet<AuditResponse>("/api/v1/audit?limit=5", authFetch).catch(() => ({ entries: [], total: 0 })),
-        ]);
-
-        const agents = agentData.agents;
-        const active = agents.filter((a) => a.status === "active").length;
-        const suspended = agents.filter((a) => a.status === "suspended").length;
-        const revoked = agents.filter((a) => a.status === "revoked").length;
-        const sorted = [...agents].sort(
-          (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
-
-        setStats({
-          totalAgents: agentData.total,
-          activeAgents: active,
-          suspendedAgents: suspended,
-          revokedAgents: revoked,
-          totalPlatforms: platformData.total,
-          recentActivity: auditData.entries,
-          lastActivity: sorted[0]?.updatedAt ?? null,
-        });
+        const data = await apiGet<StatsResponse>("/api/v1/stats", authFetch);
+        setStats(data);
       } catch {
         setStats({
-          totalAgents: 0,
-          activeAgents: 0,
-          suspendedAgents: 0,
-          revokedAgents: 0,
-          totalPlatforms: 0,
+          agents: { total: 0, active: 0, suspended: 0, revoked: 0 },
+          platforms: { total: 0 },
+          manifests: { total: 0, active: 0 },
           recentActivity: [],
-          lastActivity: null,
+          agentTimeline: [],
         });
       } finally {
         setLoading(false);
@@ -123,7 +87,7 @@ export default function DashboardPage() {
   const statCards = [
     {
       label: "Total Agents",
-      value: stats?.totalAgents ?? 0,
+      value: stats?.agents.total ?? 0,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -132,7 +96,7 @@ export default function DashboardPage() {
     },
     {
       label: "Active",
-      value: stats?.activeAgents ?? 0,
+      value: stats?.agents.active ?? 0,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -140,17 +104,17 @@ export default function DashboardPage() {
       ),
     },
     {
-      label: "Suspended",
-      value: stats?.suspendedAgents ?? 0,
+      label: "Manifests",
+      value: stats?.manifests.active ?? 0,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
         </svg>
       ),
     },
     {
       label: "Platforms",
-      value: stats?.totalPlatforms ?? 0,
+      value: stats?.platforms.total ?? 0,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z" />
@@ -158,11 +122,11 @@ export default function DashboardPage() {
       ),
     },
     {
-      label: "Revoked",
-      value: stats?.revokedAgents ?? 0,
+      label: "Suspended",
+      value: stats?.agents.suspended ?? 0,
       icon: (
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
         </svg>
       ),
     },
@@ -201,6 +165,11 @@ export default function DashboardPage() {
     },
   ];
 
+  const chartData = stats?.agentTimeline.map((point) => ({
+    day: formatChartDate(point.day),
+    agents: point.count,
+  })) ?? [];
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -233,6 +202,58 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {/* Agent Creation Timeline Chart */}
+      {!loading && chartData.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-[13px] font-medium text-muted">
+            Agent Creation (Last 30 Days)
+          </h2>
+          <Card>
+            <CardContent className="p-4">
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="agentGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="day"
+                    tick={{ fill: "#A1A1AA", fontSize: 11 }}
+                    axisLine={{ stroke: "#3F3F46" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fill: "#A1A1AA", fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={30}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#18181B",
+                      border: "1px solid #3F3F46",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      color: "#FAFAFA",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="agents"
+                    stroke="#3B82F6"
+                    fill="url(#agentGradient)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="mt-8">
@@ -285,8 +306,8 @@ export default function DashboardPage() {
                     className="flex items-center justify-between px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="h-1.5 w-1.5 rounded-full bg-muted" />
-                      <span className="text-[13px] text-foreground">
+                      <div className={`h-1.5 w-1.5 rounded-full ${entry.action === "agent_registry_registered" ? "bg-registry" : "bg-muted"}`} />
+                      <span className={`text-[13px] ${entry.action === "agent_registry_registered" ? "text-registry" : "text-foreground"}`}>
                         {actionLabels[entry.action] ?? entry.action}
                       </span>
                       {entry.agentName && (

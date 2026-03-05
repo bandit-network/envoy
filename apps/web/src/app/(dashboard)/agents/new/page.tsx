@@ -1,14 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, CardContent, Input, Textarea, Badge } from "@envoy/ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAuthFetch } from "@/hooks/use-auth-fetch";
-import { apiPost, ApiError } from "@/lib/api";
+import { apiGet, apiPost, ApiError } from "@/lib/api";
 import { getAgentAvatarUrl } from "@/lib/avatar";
 import { toast } from "sonner";
 import Link from "next/link";
+
+interface Org {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+}
+
+interface OrgListResponse {
+  organizations: Org[];
+}
 
 interface PairingData {
   pairingId: string;
@@ -77,10 +88,29 @@ export default function CreateAgentPage() {
   const [socialX, setSocialX] = useState("");
   const [scopes, setScopes] = useState<string[]>(["api_access"]);
   const [defaultTtl, setDefaultTtl] = useState("");
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdAgent, setCreatedAgent] = useState<CreateAgentResponse | null>(null);
   const [copied, setCopied] = useState<"id" | "secret" | null>(null);
+
+  const loadOrgs = useCallback(async () => {
+    try {
+      const data = await apiGet<OrgListResponse>(
+        "/api/v1/organizations",
+        authFetch
+      );
+      // Only show orgs where user can create agents (owner, admin, member)
+      setOrgs(data.organizations.filter((o) => o.role !== "viewer"));
+    } catch {
+      setOrgs([]);
+    }
+  }, [authFetch]);
+
+  useEffect(() => {
+    loadOrgs();
+  }, [loadOrgs]);
 
   const previewSeed = username || name || "new-agent";
   const previewAvatar = avatarUrl.trim()
@@ -104,6 +134,7 @@ export default function CreateAgentPage() {
           socialX: socialX.trim() || null,
           scopes,
           defaultTtl: defaultTtl ? Number(defaultTtl) : undefined,
+          orgId: orgId || undefined,
         },
         authFetch
       );
@@ -336,6 +367,39 @@ export default function CreateAgentPage() {
 
               {/* Divider */}
               <div className="border-t border-border" />
+
+              {/* Team / Organization */}
+              {orgs.length > 0 && (
+                <>
+                  <div>
+                    <h3 className="text-[13px] font-medium uppercase tracking-wider text-muted">Team</h3>
+                    <div className="mt-4">
+                      <label htmlFor="orgId" className="mb-1.5 block text-[13px] font-medium text-foreground">
+                        Assign to Team
+                      </label>
+                      <select
+                        id="orgId"
+                        value={orgId ?? ""}
+                        onChange={(e) => setOrgId(e.target.value || null)}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      >
+                        <option value="">Personal (no team)</option>
+                        {orgs.map((org) => (
+                          <option key={org.id} value={org.id}>
+                            {org.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-[12px] text-muted">
+                        Team members will be able to view and manage this agent
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-border" />
+                </>
+              )}
 
               {/* Social Links */}
               <div>

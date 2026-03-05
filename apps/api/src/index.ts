@@ -14,6 +14,8 @@ import { revocationsRouter } from "./routes/revocations";
 import { webhooksRouter } from "./routes/webhooks";
 import { tokenRouter } from "./routes/token";
 import { publicAgentsRouter } from "./routes/public-agents";
+import { statsRouter } from "./routes/stats";
+import { organizationsRouter } from "./routes/organizations";
 import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
 import { startExpiryScanner, stopExpiryScanner } from "./services/expiry-scanner";
 
@@ -97,6 +99,8 @@ v1.route("/agents", agentsRouter);
 v1.route("/audit", auditRouter);
 v1.route("/platforms", platformsRouter);
 v1.route("/webhooks", webhooksRouter);
+v1.route("/stats", statsRouter);
+v1.route("/organizations", organizationsRouter);
 
 app.route("/api/v1", v1);
 

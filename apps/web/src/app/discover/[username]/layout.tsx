@@ -18,6 +18,12 @@ export default function PublicProfileLayout({
           </Link>
           <div className="flex items-center gap-4">
             <Link
+              href="/discover"
+              className="text-[13px] text-muted transition-colors hover:text-foreground"
+            >
+              Discover
+            </Link>
+            <Link
               href="/docs"
               className="text-[13px] text-muted transition-colors hover:text-foreground"
             >

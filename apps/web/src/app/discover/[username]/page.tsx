@@ -138,7 +138,7 @@ export default async function AgentPublicProfilePage({
             </span>
 
             {hasOnchainIdentity && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[12px] font-medium text-accent">
+              <span className="inline-flex items-center gap-1 rounded-full border border-registry/30 bg-registry/10 px-2.5 py-0.5 text-[12px] font-medium text-registry">
                 <svg
                   className="h-3 w-3"
                   fill="none"
@@ -161,7 +161,7 @@ export default async function AgentPublicProfilePage({
                 href={`https://8004market.io/asset/${agent.registryAssetId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[12px] font-medium text-purple-400 transition-colors hover:bg-purple-500/20"
+                className="inline-flex items-center gap-1 rounded-full border border-registry/30 bg-registry/10 px-2.5 py-0.5 text-[12px] font-medium text-registry transition-colors hover:bg-registry/20"
               >
                 <svg
                   className="h-3 w-3"
@@ -206,14 +206,14 @@ export default async function AgentPublicProfilePage({
           {/* 8004 Registry */}
           {agent.registryAssetId && (
             <div className="flex items-center justify-between py-3">
-              <span className="text-[12px] font-medium uppercase tracking-wider text-muted">
+              <span className="text-[12px] font-medium uppercase tracking-wider text-registry">
                 8004 Asset
               </span>
               <a
                 href={`https://8004market.io/asset/${agent.registryAssetId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-[13px] text-foreground transition-colors hover:text-accent"
+                className="font-mono text-[13px] text-foreground transition-colors hover:text-registry"
               >
                 {truncateAddress(agent.registryAssetId)}
               </a>

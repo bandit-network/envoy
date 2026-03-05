@@ -1,4 +1,5 @@
 export { users } from "./users";
+export { orgRoleEnum, organizations, orgMembers } from "./organizations";
 export { agentStatusEnum, agents } from "./agents";
 export { manifests } from "./manifests";
 export { pairings } from "./pairings";
