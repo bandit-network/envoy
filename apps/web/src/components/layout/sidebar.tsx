@@ -94,7 +94,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r border-border bg-background transition-transform duration-200 md:static md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r border-border bg-background transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -117,7 +117,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-3">
+        <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <div className="space-y-0.5">
             {navItems.map((item) => {
               const isActive =
@@ -145,8 +145,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
         </nav>
 
-        {/* Footer */}
-        <div className="border-t border-border px-3 py-3 space-y-1">
+        {/* Footer — sticky bottom */}
+        <div className="shrink-0 border-t border-border px-3 py-3 space-y-1">
           {authenticated ? (
             <>
               {/* Connected wallet */}
