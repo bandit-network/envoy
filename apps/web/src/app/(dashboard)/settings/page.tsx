@@ -28,6 +28,13 @@ interface PlatformListResponse {
   total: number;
 }
 
+interface IssuerInfo {
+  issuer: string;
+  jwks_uri: string;
+  key_id: string;
+  algorithms: string[];
+}
+
 const THEME_OPTIONS = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
@@ -38,6 +45,7 @@ export default function SettingsPage() {
   const authFetch = useAuthFetch();
   const [user, setUser] = useState<UserInfo["user"] | null>(null);
   const [platforms, setPlatforms] = useState<PlatformRow[]>([]);
+  const [issuer, setIssuer] = useState<IssuerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -49,14 +57,20 @@ export default function SettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [userData, platformData] = await Promise.all([
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+        const [userData, platformData, issuerData] = await Promise.all([
           apiGet<UserInfo>("/api/v1/me", authFetch),
           apiGet<PlatformListResponse>("/api/v1/platforms?limit=100", authFetch).catch(
             () => ({ platforms: [], total: 0 })
           ),
+          fetch(`${apiBase}/.well-known/envoy-issuer`)
+            .then((r) => r.json() as Promise<{ success: boolean; data: IssuerInfo }>)
+            .then((r) => r.data)
+            .catch(() => null),
         ]);
         setUser(userData.user);
         setPlatforms(platformData.platforms);
+        setIssuer(issuerData);
       } catch {
         // Silently fail
       } finally {
@@ -189,18 +203,72 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Notifications */}
+        {/* Webhooks */}
         <Card>
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[14px] font-semibold text-muted">Notifications</h3>
-              <span className="rounded-md border border-border bg-surface px-2 py-0.5 text-[11px] font-medium text-muted">
-                Coming soon
-              </span>
-            </div>
-            <p className="mt-2 text-[13px] text-muted">
-              Email and webhook notifications for agent events will be available in a future update.
+            <h3 className="text-[14px] font-semibold text-foreground">Webhooks</h3>
+            <p className="mt-1 text-[13px] text-muted">
+              Receive real-time notifications when agent events occur: manifests issued, revoked, or expiring.
             </p>
+            <p className="mt-3 text-[13px] text-muted">
+              Webhook subscriptions are managed per-platform. Go to a platform&apos;s detail page to add or remove webhook endpoints.
+            </p>
+            {platforms.length > 0 ? (
+              <Link
+                href={`/platforms/${platforms[0].id}`}
+                className="mt-3 inline-block text-[13px] font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Manage webhooks →
+              </Link>
+            ) : (
+              <Link
+                href="/platforms/new"
+                className="mt-3 inline-block text-[13px] font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Register a platform to enable webhooks →
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Issuer Info */}
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-[14px] font-semibold text-foreground">Issuer</h3>
+            <p className="mt-1 text-[13px] text-muted">
+              Public key metadata for token verification. Platforms use this to verify agent identity tokens.
+            </p>
+            {issuer ? (
+              <div className="mt-4 space-y-0 divide-y divide-border">
+                <div className="flex items-center justify-between py-3 first:pt-0">
+                  <div className="min-w-0">
+                    <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Issuer URL</dt>
+                    <dd className="mt-0.5 truncate font-mono text-[12px] text-foreground">{issuer.issuer}</dd>
+                  </div>
+                  <CopyButton value={issuer.issuer} />
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Key ID</dt>
+                    <dd className="mt-0.5 truncate font-mono text-[12px] text-foreground">{issuer.key_id}</dd>
+                  </div>
+                  <CopyButton value={issuer.key_id} />
+                </div>
+                <div className="py-3">
+                  <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">Algorithms</dt>
+                  <dd className="mt-0.5 text-[13px] text-foreground">{issuer.algorithms.join(", ")}</dd>
+                </div>
+                <div className="flex items-center justify-between py-3">
+                  <div className="min-w-0">
+                    <dt className="text-[12px] font-medium uppercase tracking-wider text-muted">JWKS URI</dt>
+                    <dd className="mt-0.5 truncate font-mono text-[12px] text-foreground">{issuer.jwks_uri}</dd>
+                  </div>
+                  <CopyButton value={issuer.jwks_uri} />
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-[13px] text-muted">Could not load issuer metadata.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -222,7 +290,7 @@ export default function SettingsPage() {
             >
               Delete Account
             </button>
-            <p className="mt-2 text-[12px] text-muted">Available in a future update</p>
+            <p className="mt-2 text-[12px] text-muted">Contact support to delete your account</p>
           </CardContent>
         </Card>
       </div>

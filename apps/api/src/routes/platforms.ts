@@ -375,3 +375,98 @@ platformsRouter.delete("/:id/api-keys/:keyId", async (c) => {
 
   return c.json({ success: true, data: revoked });
 });
+
+/**
+ * POST /:id/api-keys/:keyId/rotate -- Atomically revoke old key and create new one
+ * Inherits label and scopes from the old key.
+ */
+platformsRouter.post("/:id/api-keys/:keyId/rotate", async (c) => {
+  const user = c.get("user");
+  const platformId = c.req.param("id");
+  const keyId = c.req.param("keyId");
+
+  // Verify ownership
+  const platform = await db.query.platforms.findFirst({
+    where: and(eq(platforms.id, platformId), eq(platforms.ownerId, user.userId)),
+  });
+
+  if (!platform) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "Platform not found" } },
+      404
+    );
+  }
+
+  if (platform.revokedAt) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Cannot rotate keys for a revoked platform" } },
+      400
+    );
+  }
+
+  const [oldKey] = await db
+    .select()
+    .from(platformApiKeys)
+    .where(
+      and(
+        eq(platformApiKeys.id, keyId),
+        eq(platformApiKeys.platformId, platformId)
+      )
+    )
+    .limit(1);
+
+  if (!oldKey) {
+    return c.json(
+      { success: false, error: { code: "NOT_FOUND", message: "API key not found" } },
+      404
+    );
+  }
+
+  if (oldKey.revokedAt) {
+    return c.json(
+      { success: false, error: { code: "BAD_REQUEST", message: "Cannot rotate an already revoked key" } },
+      400
+    );
+  }
+
+  // Revoke old key
+  await db
+    .update(platformApiKeys)
+    .set({ revokedAt: new Date() })
+    .where(eq(platformApiKeys.id, keyId));
+
+  // Generate new key inheriting label + scopes
+  try {
+    const newKey = await generateApiKey(platformId, {
+      label: oldKey.label ?? undefined,
+      scopes: oldKey.scopes ?? undefined,
+    });
+
+    logAudit({
+      action: "api_key_rotated",
+      userId: user.userId,
+      metadata: {
+        platformId,
+        oldKeyId: keyId,
+        oldKeyPrefix: oldKey.keyPrefix,
+        newKeyId: newKey.keyId,
+        newKeyPrefix: newKey.keyPrefix,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        revokedKeyId: keyId,
+        ...newKey,
+      },
+    });
+  } catch (err) {
+    // If new key generation fails, the old key is already revoked — inform the user
+    const message = err instanceof Error ? err.message : "Failed to generate replacement key";
+    return c.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: `Old key was revoked but new key generation failed: ${message}` } },
+      500
+    );
+  }
+});

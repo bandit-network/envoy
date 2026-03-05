@@ -98,6 +98,38 @@ verifyRouter.post("/verify", async (c) => {
           403
         );
       }
+
+      // Check scope requirements — if the API key has scopes, enforce them
+      const requiredScopes = keyResult.scopes ?? [];
+      if (requiredScopes.length > 0 && result.scopes) {
+        const missingScopes = requiredScopes.filter(
+          (s) => !result.scopes!.includes(s)
+        );
+        if (missingScopes.length > 0) {
+          return c.json(
+            {
+              success: false,
+              error: {
+                code: "INSUFFICIENT_SCOPES",
+                message: `Agent is missing required scopes: ${missingScopes.join(", ")}`,
+                requiredScopes,
+                agentScopes: result.scopes,
+                missingScopes,
+              },
+              data: {
+                valid: true,
+                manifest: result.manifest,
+                revoked: false,
+                expired: false,
+                scopes: result.scopes,
+                onchainIdentity: result.onchainIdentity,
+                registry: result.registry,
+              },
+            },
+            403
+          );
+        }
+      }
     }
     // If API key is invalid, we still return the verification result
     // (platform key is optional — bad key doesn't block verification)
