@@ -79,8 +79,9 @@ agentsRouter.post("/", async (c) => {
     throw new HTTPException(500, { message: "Failed to create agent" });
   }
 
-  // Provision wallet (async, never blocks agent creation)
-  const walletAddress = await provisionWallet(agent.id, user.userId);
+  // Provision wallet — no-custody: secret key shown once, never stored
+  const walletResult = await provisionWallet(agent.id, user.userId);
+  const walletAddress = walletResult?.publicKey ?? null;
   let agentData = walletAddress
     ? { ...agent, walletAddress }
     : agent;
@@ -133,6 +134,8 @@ agentsRouter.post("/", async (c) => {
     data: {
       ...agentData,
       pairing: pairing ?? undefined,
+      // Secret key shown ONCE at creation — never stored in DB
+      walletSecretKey: walletResult?.secretKey ?? undefined,
     },
   }, 201);
 });

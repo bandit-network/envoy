@@ -16,6 +16,7 @@ import { tokenRouter } from "./routes/token";
 import { publicAgentsRouter } from "./routes/public-agents";
 import { statsRouter } from "./routes/stats";
 import { organizationsRouter } from "./routes/organizations";
+import { authRouter } from "./routes/auth";
 import { startWebhookWorker, stopWebhookWorker } from "./services/webhook-queue";
 import { startExpiryScanner, stopExpiryScanner } from "./services/expiry-scanner";
 
@@ -38,6 +39,7 @@ const RATE_LIMIT_AUTHENTICATED = Number(process.env.RATE_LIMIT_AUTHENTICATED) ||
 const RATE_LIMIT_PAIR = Number(process.env.RATE_LIMIT_PAIR) || 10;
 const RATE_LIMIT_TOKEN_REFRESH = Number(process.env.RATE_LIMIT_TOKEN_REFRESH) || 10;
 const RATE_LIMIT_TOKEN_STATUS = Number(process.env.RATE_LIMIT_TOKEN_STATUS) || 60;
+const RATE_LIMIT_AUTH = Number(process.env.RATE_LIMIT_AUTH) || 20;
 
 const MINUTE = 60_000;
 
@@ -66,17 +68,22 @@ app.use(
   "/api/v1/agents/public/*",
   createRateLimit({ limit: RATE_LIMIT_PUBLIC, windowMs: MINUTE })
 );
+app.use(
+  "/api/v1/auth/*",
+  createRateLimit({ limit: RATE_LIMIT_AUTH, windowMs: MINUTE })
+);
 
 // Public routes
 app.route("/", health);
 app.route("/", wellKnown);
+app.route("/api/v1", authRouter);
 app.route("/api/v1", pairingRouter);
 app.route("/api/v1", verifyRouter);
 app.route("/api/v1", revocationsRouter);
 app.route("/api/v1", tokenRouter);
 app.route("/api/v1", publicAgentsRouter);
 
-// Protected routes (Privy JWT required)
+// Protected routes (authenticated session required)
 const v1 = new Hono<AuthEnv>();
 v1.use("*", authMiddleware);
 v1.use(
