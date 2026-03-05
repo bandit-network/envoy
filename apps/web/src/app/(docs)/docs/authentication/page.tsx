@@ -187,8 +187,8 @@ const { data } = await response.json();
             but hosters can configure alternative providers:
           </p>
           <ul>
-            <li><strong>wallet</strong> (default) — Solana wallet adapter with challenge-response</li>
-            <li><strong>privy</strong> — Privy server SDK (requires <code>PRIVY_APP_ID</code> and <code>PRIVY_APP_SECRET</code>)</li>
+            <li><strong>wallet</strong> (default) - Solana wallet adapter with challenge-response</li>
+            <li><strong>privy</strong> - Privy server SDK (requires <code>PRIVY_APP_ID</code> and <code>PRIVY_APP_SECRET</code>)</li>
           </ul>
           <p>
             Set the <code>AUTH_PROVIDER</code> environment variable to switch providers.

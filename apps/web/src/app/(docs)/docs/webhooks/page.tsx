@@ -15,7 +15,7 @@ export default function WebhooksPage() {
         <Prose>
           <p>
             Envoy sends webhook notifications to platforms when important events
-            occur — agent revocation, manifest issuance, and more. This enables
+            occur - agent revocation, manifest issuance, and more. This enables
             platforms to react in real-time rather than polling for changes.
           </p>
           <p>
@@ -181,11 +181,11 @@ app.post("/webhooks/envoy", (req, res) => {
       <Section id="best-practices" title="Best Practices">
         <Prose>
           <ul>
-            <li><strong>Respond quickly</strong> — return a 200 response within 10 seconds. Process events asynchronously if needed.</li>
-            <li><strong>Idempotency</strong> — webhooks may be delivered more than once. Use event IDs to deduplicate.</li>
-            <li><strong>Always verify signatures</strong> — never process unsigned or incorrectly signed payloads.</li>
-            <li><strong>Use HTTPS</strong> — webhook URLs must use HTTPS in production.</li>
-            <li><strong>Monitor failures</strong> — check the audit log for failed webhook deliveries and fix endpoint issues promptly.</li>
+            <li><strong>Respond quickly</strong> - return a 200 response within 10 seconds. Process events asynchronously if needed.</li>
+            <li><strong>Idempotency</strong> - webhooks may be delivered more than once. Use event IDs to deduplicate.</li>
+            <li><strong>Always verify signatures</strong> - never process unsigned or incorrectly signed payloads.</li>
+            <li><strong>Use HTTPS</strong> - webhook URLs must use HTTPS in production.</li>
+            <li><strong>Monitor failures</strong> - check the audit log for failed webhook deliveries and fix endpoint issues promptly.</li>
           </ul>
         </Prose>
       </Section>

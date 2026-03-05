@@ -168,7 +168,7 @@ const verifier = new EnvoyVerifier({
 
 if (!result.valid) {
   if (result.expired) {
-    // Token TTL exceeded — agent should refresh
+    // Token TTL exceeded - agent should refresh
     console.log("Token expired");
   } else if (result.revoked) {
     // Token explicitly revoked by operator

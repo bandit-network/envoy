@@ -128,7 +128,7 @@ const steps = [
     step: "03",
     title: "Verify on Platforms",
     description:
-      "Platforms verify agent tokens against Envoy's public keys. Scopes, expiry, and revocation — checked in one call.",
+      "Platforms verify agent tokens against Envoy's public keys. Scopes, expiry, and revocation - checked in one call.",
   },
 ];
 
@@ -185,7 +185,7 @@ const features = [
   {
     title: "Append-Only Audit",
     description:
-      "Every action is logged — creation, issuance, pairing, revocation. Full traceability.",
+      "Every action is logged - creation, issuance, pairing, revocation. Full traceability.",
     icon: <DocumentIcon className="h-[18px] w-[18px]" />,
   },
   {
@@ -325,7 +325,7 @@ export default function Home() {
             className="mt-6 inline-flex items-center gap-2 rounded-full border border-registry/20 bg-registry/5 px-4 py-2 text-[12px] font-medium text-registry transition-colors hover:border-registry/40 hover:bg-registry/10"
           >
             <span className="text-muted">Powered by</span>
-            {/* Solana logo mark — three tilted bars */}
+            {/* Solana logo mark - three tilted bars */}
             <svg className="h-3 w-3" viewBox="0 0 398 398" fill="none" xmlns="http://www.w3.org/2000/svg">
               <linearGradient id="solGrad1" x1="360" y1="10" x2="40" y2="390" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#00FFA3" />
@@ -394,7 +394,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trust Model — Four entity flow */}
+      {/* Trust Model - Four entity flow */}
       <section className="border-t border-border">
         <div className="mx-auto max-w-[1100px] px-6 py-20 sm:py-24">
           <div className="text-center">

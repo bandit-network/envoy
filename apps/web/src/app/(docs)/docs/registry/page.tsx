@@ -22,7 +22,7 @@ export default function RegistryPage() {
           <p>
             Envoy integrates with 8004 to provide on-chain identity for agents.
             When an agent is registered on 8004, its identity can be verified
-            by anyone using the Solana blockchain — no trust in Envoy required.
+            by anyone using the Solana blockchain - no trust in Envoy required.
           </p>
         </Prose>
 
@@ -49,10 +49,10 @@ export default function RegistryPage() {
             (if registry is enabled):
           </p>
           <ul>
-            <li><strong>Wallet provisioned</strong> — Envoy provisions a Solana wallet for the agent via Privy.</li>
-            <li><strong>Metadata uploaded</strong> — Agent metadata (name, description, Envoy ID) is uploaded to IPFS via Pinata.</li>
-            <li><strong>On-chain registration</strong> — A Metaplex Core NFT is minted on Solana, linking the agent to its metadata.</li>
-            <li><strong>Asset ID stored</strong> — The on-chain asset public key is saved in Envoy for verification.</li>
+            <li><strong>Wallet provisioned</strong> - Envoy provisions a Solana wallet for the agent via Privy.</li>
+            <li><strong>Metadata uploaded</strong> - Agent metadata (name, description, Envoy ID) is uploaded to IPFS via Pinata.</li>
+            <li><strong>On-chain registration</strong> - A Metaplex Core NFT is minted on Solana, linking the agent to its metadata.</li>
+            <li><strong>Asset ID stored</strong> - The on-chain asset public key is saved in Envoy for verification.</li>
           </ul>
         </Prose>
       </Section>
@@ -62,7 +62,7 @@ export default function RegistryPage() {
           <p>
             When <code>REGISTRY_ENABLED=true</code> is set, Envoy automatically
             registers agents on the 8004 registry during creation. This is a
-            non-blocking operation — if registration fails, the agent is still
+            non-blocking operation - if registration fails, the agent is still
             created successfully and can be registered manually later.
           </p>
           <p>
@@ -71,7 +71,7 @@ export default function RegistryPage() {
           <ul>
             <li>Agent created → Wallet provisioned → Registry registration attempted</li>
             <li>On success: <code>registryAssetId</code> is stored on the agent record</li>
-            <li>On failure: Agent is created without registry — can be registered manually</li>
+            <li>On failure: Agent is created without registry - can be registered manually</li>
           </ul>
         </Prose>
       </Section>

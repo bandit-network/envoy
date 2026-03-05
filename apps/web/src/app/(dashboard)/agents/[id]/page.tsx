@@ -163,7 +163,7 @@ export default function AgentDetailPage() {
   async function handleRegisterOnChain() {
     if (!connected || !publicKey || !signTransaction) {
       setWalletModalVisible(true);
-      toast.error("Connect your wallet first — you'll pay the registration fee");
+      toast.error("Connect your wallet first - you'll pay the registration fee");
       return;
     }
 

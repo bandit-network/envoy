@@ -565,12 +565,12 @@ ENVOY_PAIRING_SECRET=${createdAgent.pairing.pairingSecret}`;
                 </h3>
                 <div className="mt-3 rounded-lg border border-border bg-surface px-4 py-3">
                   <p className="text-[13px] text-foreground font-medium">
-                    Optional — register after creation
+                    Optional - register after creation
                   </p>
                   <p className="mt-1 text-[12px] text-muted leading-relaxed">
                     Some platforms require agents to have on-chain identity on the 8004 Solana registry.
                     Check with the platform your agent will interact with. You can register on 8004 from
-                    the agent detail page after creation — it costs a small amount of SOL paid from your connected wallet.
+                    the agent detail page after creation. It costs a small amount of SOL paid from your connected wallet.
                   </p>
                 </div>
               </div>

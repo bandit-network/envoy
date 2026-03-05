@@ -17,9 +17,9 @@ export default function AgentSdkPage() {
             An AI agent runtime integrates with Envoy in three steps:
           </p>
           <ul>
-            <li><strong>Pair</strong> — Use a one-time pairing secret to link the runtime to an Envoy identity.</li>
-            <li><strong>Receive</strong> — Get a signed manifest (JWT) that proves the agent&apos;s identity.</li>
-            <li><strong>Present</strong> — Send the token to platforms in the <code>X-Agent-Token</code> header.</li>
+            <li><strong>Pair</strong> - Use a one-time pairing secret to link the runtime to an Envoy identity.</li>
+            <li><strong>Receive</strong> - Get a signed manifest (JWT) that proves the agent&apos;s identity.</li>
+            <li><strong>Present</strong> - Send the token to platforms in the <code>X-Agent-Token</code> header.</li>
           </ul>
         </Prose>
       </Section>
@@ -188,11 +188,11 @@ const response = await fetch("https://platform.example.com/api/data", {
       <Section id="security" title="Security Best Practices">
         <Prose>
           <ul>
-            <li><strong>Never expose pairing secrets</strong> — they are single-use, but should still be treated as sensitive credentials.</li>
-            <li><strong>Store tokens securely</strong> — use environment variables or secure key stores, never commit tokens to source control.</li>
-            <li><strong>Implement auto-refresh</strong> — refresh tokens before they expire to avoid service interruption.</li>
-            <li><strong>Handle revocation gracefully</strong> — if a token is revoked, the agent should stop making requests and notify the operator.</li>
-            <li><strong>Use HTTPS only</strong> — all Envoy API requests must use HTTPS in production.</li>
+            <li><strong>Never expose pairing secrets</strong> - they are single-use, but should still be treated as sensitive credentials.</li>
+            <li><strong>Store tokens securely</strong> - use environment variables or secure key stores, never commit tokens to source control.</li>
+            <li><strong>Implement auto-refresh</strong> - refresh tokens before they expire to avoid service interruption.</li>
+            <li><strong>Handle revocation gracefully</strong> - if a token is revoked, the agent should stop making requests and notify the operator.</li>
+            <li><strong>Use HTTPS only</strong> - all Envoy API requests must use HTTPS in production.</li>
           </ul>
         </Prose>
       </Section>
